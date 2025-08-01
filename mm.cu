@@ -11,11 +11,9 @@
 __global__ void sgemm_naive(int M, int N, int K,
                             float alpha, const float *A,
                             const float *B, float beta, float *C) {
-    // Position in array C from a global perspective: (x,y)
-    // (x,y) means "normal" matrix coordinates
-    // In contrast: Cuda's x is usually the column index, y the row index
-    const unsigned int y = threadIdx.x + blockIdx.x * blockDim.x;
-    const unsigned int x = threadIdx.y + blockIdx.y * blockDim.y;
+    // Position in array C from a global perspective:
+    const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
+    const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
     if (x < M && y < N) {
     float tmp = 0.0;
@@ -74,7 +72,7 @@ int main() {
     // Block dimension
     dim3 blockDim(32, 32, 1);
     // Grid dimension
-    dim3 gridDim(CEIL_DIV(N, 32), CEIL_DIV(M, 32), 1);
+    dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32), 1);
 
     // Kernel launch
     sgemm_naive<<<gridDim, blockDim>>>(M, N, K, alpha, d_A, d_B, beta, d_C);
