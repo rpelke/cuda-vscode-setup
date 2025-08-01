@@ -7,6 +7,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/add_cuda",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Execute 'mm_cuda'",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/bin/mm_cuda",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

@@ -22,14 +22,16 @@ add_executable(
     add_cuda
     add.cu
 )
-
-set_target_properties(add_cuda PROPERTIES
-    CUDA_STANDARD 17
-    CUDA_STANDARD_REQUIRED ON
-    POSITION_INDEPENDENT_CODE OFF
-)
-
 install(
     TARGETS add_cuda
+    DESTINATION bin
+)
+
+add_executable(
+    mm_cuda
+    mm.cu
+)
+install(
+    TARGETS mm_cuda
     DESTINATION bin
 )
