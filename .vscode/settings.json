@@ -1,0 +1,14 @@
+{
+    "cmake.buildDirectory": "${workspaceFolder}/build/${variant:buildType}/build",
+    "cmake.installPrefix": "${workspaceFolder}/build/${variant:buildType}",
+    "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
+    "cmake.exportCompileCommandsFile": true,
+    "cmake.configureSettings": {
+        "CMAKE_CUDA_TOOLKIT_ROOT_DIR": "/usr/local/cuda-12.4",
+        "CMAKE_BUILD_TYPE": "Debug"
+    },
+    "cmake.environment": {
+        "VIRTUAL_ENV": "${workspaceFolder}/.venv",
+        "PATH": "${workspaceFolder}/.venv/bin:${env:PATH}"
+    },
+}

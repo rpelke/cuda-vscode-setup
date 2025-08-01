@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Execute 'add_cuda'",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/bin/add_cuda",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

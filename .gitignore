@@ -1,0 +1,9 @@
+# Artefacts
+build
+
+# VSCode
+compile_commands.json
+
+# Python
+.venv
+__pycache__
