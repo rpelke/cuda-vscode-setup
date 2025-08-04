@@ -1,0 +1,127 @@
+#include <cmath>
+#include <cstdlib>
+#include <cuda_runtime.h>
+#include <iostream>
+#include <vector>
+
+#include "sgemm.cuh"
+
+// run_sgemm_test now takes grid and block dimensions as parameters
+template <typename KernelLauncher>
+void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
+                    KernelLauncher launcher, float alpha = 1.0f,
+                    float beta = 0.0f, const std::string &name = "SGEMM") {
+    std::cout << "=== Testing '" << name << "' M=" << M << ", N=" << N
+              << ", K=" << K << " ===\n";
+
+    // Allocate and initialize host data
+    std::vector<float> h_A(M * K), h_B(K * N), h_C(M * N), h_C_ref(M * N);
+    for (int i = 0; i < M * K; ++i)
+        h_A[i] = static_cast<float>(rand()) / RAND_MAX;
+    for (int i = 0; i < K * N; ++i)
+        h_B[i] = static_cast<float>(rand()) / RAND_MAX;
+    for (int i = 0; i < M * N; ++i) {
+        h_C[i] = static_cast<float>(rand()) / RAND_MAX;
+        h_C_ref[i] = h_C[i];
+    }
+
+    // Allocate device memory
+    float *d_A, *d_B, *d_C;
+    cudaMalloc(&d_A, M * K * sizeof(float));
+    cudaMalloc(&d_B, K * N * sizeof(float));
+    cudaMalloc(&d_C, M * N * sizeof(float));
+
+    // Copy host -> device
+    cudaMemcpy(d_A, h_A.data(), M * K * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B, h_B.data(), K * N * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_C, h_C.data(), M * N * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Timing events
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+
+    // Launch the specified kernel
+    launcher(M, N, K, alpha, d_A, d_B, beta, d_C, gridDim, blockDim);
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+
+    // Copy device -> host
+    cudaMemcpy(h_C.data(), d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // CPU reference
+    cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_ref);
+
+    // Timing report
+    float ms = 0.f;
+    cudaEventElapsedTime(&ms, start, stop);
+    double gflops = 2.0 * M * N * K / (ms * 1e6);
+    std::cout << " Performance: " << ms << " ms, " << gflops << " GFLOPS\n";
+
+    // Validation
+    int mismatches = 0;
+    float max_err = 0.0f;
+    for (int i = 0; i < M * N; ++i) {
+        float e = std::abs(h_C_ref[i] - h_C[i]);
+        if (e > 1e-3f) {
+            ++mismatches;
+            max_err = std::max(max_err, e);
+        }
+    }
+    if (mismatches == 0) {
+        std::cout << " TEST PASSED\n\n";
+    } else {
+        std::cout << " TEST FAILED: " << mismatches
+                  << " mismatches, max error = " << max_err << "\n\n";
+    }
+
+    // Cleanup
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+    cudaFree(d_A);
+    cudaFree(d_B);
+    cudaFree(d_C);
+}
+
+int main() {
+    int M = 555;
+    int N = 511;
+    int K = 99;
+
+    // Test naive kernel
+    dim3 gridNaive(BLOCKSIZE, BLOCKSIZE, 1);
+    dim3 blockNaive(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
+    run_sgemm_test(
+        M, N, K, gridNaive, blockNaive,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block) {
+            sgemm_naive<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_naive");
+
+    // Test coalesced kernel
+    dim3 blockCoalesced(BLOCKSIZE * BLOCKSIZE);
+    dim3 gridCoalesced(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
+    run_sgemm_test(
+        M, N, K, gridCoalesced, blockCoalesced,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block) {
+            sgemm_coalesced<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_coalesced");
+
+    // Test tiled kernel
+    dim3 blockTiled(BLOCKSIZE, BLOCKSIZE, 1);
+    dim3 gridTiled(CEIL_DIV(N, BLOCKSIZE), CEIL_DIV(M, BLOCKSIZE), 1);
+    run_sgemm_test(
+        M, N, K, gridTiled, blockTiled,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block) {
+            sgemm_tiled<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_tiled");
+
+    return 0;
+}

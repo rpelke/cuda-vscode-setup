@@ -19,37 +19,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(
-    add_cuda
-    add.cu
+    sgemm
+    main.cu
+    src/sgemm_cpu.cpp
+    src/sgemm_naive.cu
+    src/sgemm_coalesced.cu
+    src/sgemm_tiled.cu
+)
+target_include_directories(
+    sgemm
+    PRIVATE inc
 )
 install(
-    TARGETS add_cuda
-    DESTINATION bin
-)
-
-add_executable(
-    mm_cuda
-    mm.cu
-)
-install(
-    TARGETS mm_cuda
-    DESTINATION bin
-)
-
-add_executable(
-    mm_coalesced_cuda
-    mm_coalesced.cu
-)
-install(
-    TARGETS mm_coalesced_cuda
-    DESTINATION bin
-)
-
-add_executable(
-    mm_tiled_cuda
-    mm_tiled.cu
-)
-install(
-    TARGETS mm_tiled_cuda
+    TARGETS sgemm
     DESTINATION bin
 )
