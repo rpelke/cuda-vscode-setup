@@ -74,15 +74,29 @@ int main() {
     // Grid dimension
     dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32), 1);
 
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
     // Kernel launch
+    cudaEventRecord(start);
     sgemm_naive<<<gridDim, blockDim>>>(M, N, K, alpha, d_A, d_B, beta, d_C);
-    cudaDeviceSynchronize();
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
 
     // Copy result back
     cudaMemcpy(h_C.data(), d_C, M*N*sizeof(float), cudaMemcpyDeviceToHost);
 
     // CPU reference implementation of SGEMM
     cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_ref);
+
+    float ms = 0.f;
+    cudaEventElapsedTime(&ms, start, stop);  // elapsed time in milliseconds
+    double time_sec = ms / 1e3;
+
+    double tops = 2.0 * M * N * K / (time_sec * 1e12);
+    std::cout << "GPU SGEMM: " << ms << " ms, "
+              << tops << " TOPS\n";
 
     // Comparison & error analysis
     int   mismatches = 0;
@@ -104,6 +118,8 @@ int main() {
     }
 
     // Cleanup
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
     cudaFree(d_A);
     cudaFree(d_B);
     cudaFree(d_C);
