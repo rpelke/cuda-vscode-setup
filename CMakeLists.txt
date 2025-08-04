@@ -35,3 +35,12 @@ install(
     TARGETS mm_cuda
     DESTINATION bin
 )
+
+add_executable(
+    mm_coalesced_cuda
+    mm_coalesced.cu
+)
+install(
+    TARGETS mm_coalesced_cuda
+    DESTINATION bin
+)
