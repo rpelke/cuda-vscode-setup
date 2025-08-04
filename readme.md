@@ -1,11 +1,4 @@
-## Build venv (if needed)
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-# Compile cuda example
+## Compile sgemm kernels
 ```bash
 mkdir -p build/debug/build && cd build/debug/build
 cmake \
@@ -17,5 +10,5 @@ make
 make install
 
 # Execute in main directory
-./build/debug/bin/add_cuda
+./build/debug/bin/sgemm
 ```
