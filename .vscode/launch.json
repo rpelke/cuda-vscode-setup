@@ -21,6 +21,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/mm_coalesced_cuda",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Execute 'mm_tiled_cuda'",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/bin/mm_tiled_cuda",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

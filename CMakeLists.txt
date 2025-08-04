@@ -44,3 +44,12 @@ install(
     TARGETS mm_coalesced_cuda
     DESTINATION bin
 )
+
+add_executable(
+    mm_tiled_cuda
+    mm_tiled.cu
+)
+install(
+    TARGETS mm_tiled_cuda
+    DESTINATION bin
+)

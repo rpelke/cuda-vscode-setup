@@ -5,7 +5,8 @@
 #include <cmath>
 #include <cuda_runtime.h>
 
-#define CEIL_DIV(a,b) (((a) + (b) - 1) / (b))
+constexpr int CEIL_DIV(int a, int b) { return ((a) + (b) - 1) / (b); }
+constexpr int BLOCKSIZE = 32;
 
 // Naive SGEMM kernel: C = alpha * A @ B + beta * C
 __global__ void sgemm_naive(int M, int N, int K,
@@ -70,9 +71,9 @@ int main() {
     cudaMemcpy(d_C, h_C.data(), M*N*sizeof(float), cudaMemcpyHostToDevice);
 
     // Block dimension
-    dim3 blockDim(32, 32, 1);
+    dim3 blockDim(BLOCKSIZE, BLOCKSIZE, 1);
     // Grid dimension
-    dim3 gridDim(CEIL_DIV(M, 32), CEIL_DIV(N, 32), 1);
+    dim3 gridDim(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
