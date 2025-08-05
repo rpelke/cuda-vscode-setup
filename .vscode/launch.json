@@ -7,6 +7,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "CUDA C++ Launch",
+            "type": "cuda-gdb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/bin/sgemm",
+            "cwd": "${workspaceFolder}"
         }
     ]
 }

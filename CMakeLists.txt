@@ -18,6 +18,9 @@ set(CMAKE_CUDA_ARCHITECTURES 75)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_CUDA_FLAGS_DEBUG
+    "${CMAKE_CUDA_FLAGS_DEBUG} -G -g -O0")
+
 add_executable(
     sgemm
     main.cu
