@@ -1,0 +1,78 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Profile SGEMM with Nsight (sudo)",
+      "type": "shell",
+      "command": "sudo",
+      "args": [
+        "${config:CudaToolkitPath}/bin/ncu",
+        "--kernel-name", "${input:kernelName}",
+        "--section", "${input:section}",
+        "${workspaceFolder}/build/release/bin/sgemm"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Profile SGEMM with Nsight (no sudo)",
+      "type": "shell",
+      "command": "${config:CudaToolkitPath}/bin/ncu", 
+      "args": [
+        "--kernel-name", "${input:kernelName}",
+        "--section", "${input:section}",
+        "${workspaceFolder}/build/release/bin/sgemm"
+      ],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "kernelName",
+      "type": "promptString",
+      "description": "Enter the kernel name to profile",
+      "default": "sgemm_naive"
+    },
+    {
+      "id": "section",
+      "type": "pickString",
+      "options": [
+        "C2CLink",
+        "ComputeWorkloadAnalysis",
+        "InstructionStats",
+        "LaunchStats",
+        "MemoryWorkloadAnalysis",
+        "MemoryWorkloadAnalysis_Chart",
+        "MemoryWorkloadAnalysis_Tables",
+        "NumaAffinity",
+        "Nvlink",
+        "Nvlink_Tables",
+        "Nvlink_Topology",
+        "Occupancy",
+        "PmSampling",
+        "PmSampling_WarpStates",
+        "SchedulerStats",
+        "SourceCounters",
+        "SpeedOfLight",
+        "SpeedOfLight_HierarchicalDoubleRooflineChart",
+        "SpeedOfLight_HierarchicalHalfRooflineChart",
+        "SpeedOfLight_HierarchicalSingleRooflineChart",
+        "SpeedOfLight_HierarchicalTensorRooflineChart",
+        "SpeedOfLight_RooflineChart",
+        "WarpStateStats",
+        "WorkloadDistribution"
+      ],
+      "description": "Select the section to profile",
+      "default": "WarpStateStats"
+    }
+  ]
+}

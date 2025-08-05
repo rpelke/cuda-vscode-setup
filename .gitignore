@@ -1,5 +1,7 @@
 # Artefacts
 build
+*.nsys-rep
+*.sqlite
 
 # VSCode
 compile_commands.json

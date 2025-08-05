@@ -2,14 +2,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Execute 'sgemm'",
+            "name": "Run kernel",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/debug/bin/sgemm",
+            "program": "${workspaceFolder}/build/release/bin/sgemm",
             "cwd": "${workspaceFolder}"
         },
         {
-            "name": "CUDA C++ Launch",
+            "name": "Debug kernel",
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
