@@ -28,16 +28,18 @@ __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
     for (int k = 0; k < K; k += BLOCKSIZE) {
         // Load one A value and one B value per thread to shared memory
         if ((k + t_x < K) && (b_y * BLOCKSIZE + t_y < M)) {
-            As[BLOCKSIZE * t_y + t_x] = A[A_tile_offs + K * t_y + k + t_x];
+            As[BLOCKSIZE * t_y + t_x] = A[A_tile_offs + K * t_y + t_x];
         } else {
             As[BLOCKSIZE * t_y + t_x] = 0.0f; // Out of bounds
         }
+        A += BLOCKSIZE;
 
         if ((b_x * BLOCKSIZE + t_x < N) && (k + t_y < K)) {
-            Bs[BLOCKSIZE * t_y + t_x] = B[N * k + N * t_y + B_tile_offs + t_x];
+            Bs[BLOCKSIZE * t_y + t_x] = B[B_tile_offs + N * t_y + t_x];
         } else {
             Bs[BLOCKSIZE * t_y + t_x] = 0.0f; // Out of bounds
         }
+        B += BLOCKSIZE * N;
 
         // Block threads to wait for all threads to load their values
         __syncthreads();
