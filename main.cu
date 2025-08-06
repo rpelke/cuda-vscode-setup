@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 #include "sgemm.cuh"
 
@@ -61,13 +62,18 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
     }
 
     // CPU reference
+    auto cpu_start = std::chrono::high_resolution_clock::now();
     cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_ref);
+    auto cpu_end   = std::chrono::high_resolution_clock::now();
+    double cpu_ms  = std::chrono::duration<double, std::milli>(cpu_end - cpu_start).count();
 
-    // Timing report
-    float ms = 0.f;
-    cudaEventElapsedTime(&ms, start, stop);
-    double gflops = 2.0 * M * N * K / (ms * 1e6);
-    std::cout << " Performance: " << ms << " ms, " << gflops << " GFLOPS\n";
+    // CPU and GPU performance
+    float gpu_ms = 0.f;
+    cudaEventElapsedTime(&gpu_ms, start, stop);
+    double gpu_gflops = 2.0 * M * N * K / (gpu_ms * 1e6);
+    double cpu_gflops = 2.0 * M * N * K / (cpu_ms * 1e6);
+    std::cout << "GPU   : " << gpu_ms << " ms, " << gpu_gflops << " GFLOPS\n";
+    std::cout << "CPU   : " << cpu_ms << " ms, " << cpu_gflops << " GFLOPS\n";
 
     // Validation
     int mismatches = 0;
