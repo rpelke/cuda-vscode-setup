@@ -3,7 +3,7 @@
 // Tiled SGEMM kernel: C = alpha * A @ B + beta * C
 __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
                             const float *B, float beta, float *C) {
-    // Block's positiion inside C
+    // Block's position inside C
     int b_y = blockIdx.y;
     int b_x = blockIdx.x;
 
@@ -34,7 +34,7 @@ __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
         }
 
         if ((b_x * BLOCKSIZE + t_x < N) && (k + t_y < K)) {
-            Bs[BLOCKSIZE * t_y + t_x] = B[+N * k + N * t_y + B_tile_offs + t_x];
+            Bs[BLOCKSIZE * t_y + t_x] = B[N * k + N * t_y + B_tile_offs + t_x];
         } else {
             Bs[BLOCKSIZE * t_y + t_x] = 0.0f; // Out of bounds
         }

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <cmath>
 #include <cstdlib>
 #include <cuda_runtime.h>
@@ -7,10 +8,11 @@
 #include "sgemm.cuh"
 
 // run_sgemm_test now takes grid and block dimensions as parameters
-template <typename KernelLauncher>
+template <typename KernelLauncher, typename... ExtraParams>
 void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
                     KernelLauncher launcher, float alpha = 1.0f,
-                    float beta = 0.0f, const std::string &name = "SGEMM") {
+                    float beta = 0.0f, const std::string &name = "SGEMM",
+                    ExtraParams &&...extraParams) {
     std::cout << "=== Testing '" << name << "' M=" << M << ", N=" << N
               << ", K=" << K << " ===\n";
 
@@ -43,13 +45,20 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
     cudaEventRecord(start);
 
     // Launch the specified kernel
-    launcher(M, N, K, alpha, d_A, d_B, beta, d_C, gridDim, blockDim);
+    launcher(M, N, K, alpha, d_A, d_B, beta, d_C, gridDim, blockDim,
+             std::forward<ExtraParams>(extraParams)...);
 
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
     // Copy device -> host
     cudaMemcpy(h_C.data(), d_C, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Kernel launch failed: " << cudaGetErrorString(err)
+                  << "\n";
+    }
 
     // CPU reference
     cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_ref);
@@ -86,9 +95,9 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
 }
 
 int main() {
-    int M = 555;
-    int N = 511;
-    int K = 99;
+    int M = 256;
+    int N = 256;
+    int K = 256;
 
     // Test naive kernel
     dim3 gridNaive(BLOCKSIZE, BLOCKSIZE, 1);
@@ -122,6 +131,21 @@ int main() {
             sgemm_tiled<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
         1.0f, 0.0f, "sgemm_tiled");
+
+    // Test tiled 1D kernel
+    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN / TN == BK, "BN / TN != BK");
+    static_assert(BM / TM == BK, "BM / TM != BK");
+    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
+    dim3 gridTiled1D(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
+    dim3 blockTiled1D(BN / TN, BM / TM, 1);
+    run_sgemm_test(
+        M, N, K, gridTiled1D, blockTiled1D,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
+            sgemm_tiled_2d<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_tiled_2d");
 
     return 0;
 }

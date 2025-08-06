@@ -4,6 +4,15 @@
 #include <cuda_runtime.h>
 #include <vector>
 
+constexpr int BM = 64;
+constexpr int BN = 32;
+constexpr int TM = 4;
+constexpr int TN = 2;
+constexpr int BK = 16;
+
+constexpr int BLOCKSIZE = 32;
+constexpr int CEIL_DIV(int a, int b) { return (a + b - 1) / b; }
+
 void cpu_sgemm(int M, int N, int K, float alpha, const std::vector<float> &A,
                const std::vector<float> &B, float beta, std::vector<float> &C);
 
@@ -14,8 +23,7 @@ __global__ void sgemm_coalesced(int M, int N, int K, float alpha,
                                 float *C);
 __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
                             const float *B, float beta, float *C);
-
-constexpr int BLOCKSIZE = 32;
-constexpr int CEIL_DIV(int a, int b) { return (a + b - 1) / b; }
+__global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
+                               const float *B, float beta, float *C);
 
 #endif // SGEMM_KERNELS_CUH
