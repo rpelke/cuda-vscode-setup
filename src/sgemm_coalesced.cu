@@ -4,16 +4,15 @@
 __global__ void sgemm_coalesced(int M, int N, int K, float alpha,
                                 const float *A, const float *B, float beta,
                                 float *C) {
-    // Position in array C from a global perspective:
-    const unsigned int x = (threadIdx.x / BLOCKSIZE) + blockIdx.x * BLOCKSIZE;
-    const unsigned int y = (threadIdx.x % BLOCKSIZE) + blockIdx.y * BLOCKSIZE;
+    const unsigned int x = (threadIdx.x % BLOCKSIZE) + blockIdx.x * BLOCKSIZE;
+    const unsigned int y = (threadIdx.x / BLOCKSIZE) + blockIdx.y * BLOCKSIZE;
 
-    if (x < M && y < N) {
+    if (x < N && y < M) {
         float tmp = 0.0;
         for (int k = 0; k < K; ++k) {
-            tmp += A[x * K + k] * B[k * N + y];
+            tmp += A[y * K + k] * B[k * N + x];
         }
         // C = α*(A@B)+β*C
-        C[x * N + y] = alpha * tmp + beta * C[x * N + y];
+        C[y * N + x] = alpha * tmp + beta * C[y * N + x];
     }
 }

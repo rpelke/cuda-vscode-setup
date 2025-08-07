@@ -118,7 +118,7 @@ int main() {
 
     // Test coalesced kernel
     dim3 blockCoalesced(BLOCKSIZE * BLOCKSIZE);
-    dim3 gridCoalesced(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
+    dim3 gridCoalesced(CEIL_DIV(N, BLOCKSIZE), CEIL_DIV(M, BLOCKSIZE), 1);
     run_sgemm_test(
         M, N, K, gridCoalesced, blockCoalesced,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
