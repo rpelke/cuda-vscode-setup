@@ -96,3 +96,9 @@ ____
 <p align="center">
   <img src="docs/tiled_2d_sgemm.png" width="90%"/>
 </p>
+
+____
+### 2D-Tiled sgemm (vectorized)
+<p align="center">
+  <img src="docs/tiled_2d_vectorized_sgemm.png" width="92%"/>
+</p>
