@@ -1,10 +1,10 @@
 #include <assert.h>
+#include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>
-#include <chrono>
 
 #include "sgemm.cuh"
 
@@ -64,8 +64,9 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
     // CPU reference
     auto cpu_start = std::chrono::high_resolution_clock::now();
     cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_ref);
-    auto cpu_end   = std::chrono::high_resolution_clock::now();
-    double cpu_ms  = std::chrono::duration<double, std::milli>(cpu_end - cpu_start).count();
+    auto cpu_end = std::chrono::high_resolution_clock::now();
+    double cpu_ms =
+        std::chrono::duration<double, std::milli>(cpu_end - cpu_start).count();
 
     // CPU and GPU performance
     float gpu_ms = 0.f;
@@ -138,18 +139,34 @@ int main() {
         },
         1.0f, 0.0f, "sgemm_tiled");
 
-    // Test tiled 1D kernel
+    // Test tiled 2D kernel
     static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
     static_assert(BN / TN == BK, "BN / TN != BK");
     static_assert(BM / TM == BK, "BM / TM != BK");
     static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
-    dim3 gridTiled1D(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
-    dim3 blockTiled1D(BN / TN, BM / TM, 1);
+    dim3 gridTiled2D(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
+    dim3 blockTiled2D(BN / TN, BM / TM, 1);
     run_sgemm_test(
-        M, N, K, gridTiled1D, blockTiled1D,
+        M, N, K, gridTiled2D, blockTiled2D,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_tiled_2d<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_tiled_2d");
+
+    // Test tiled 2D kernel with vectorization
+    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN / TN == BK, "BN / TN != BK");
+    static_assert(BM / TM == BK, "BM / TM != BK");
+    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
+    dim3 gridTiled2Dvec(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
+    dim3 blockTiled2Dvec(BN / TN, BM / TM, 1);
+    run_sgemm_test(
+        M, N, K, gridTiled2Dvec, blockTiled2Dvec,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
+            sgemm_tiled_2d_vectorized<<<grid, block>>>(M, N, K, alpha, A, B,
+                                                       beta, C);
         },
         1.0f, 0.0f, "sgemm_tiled_2d");
 

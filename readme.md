@@ -73,13 +73,13 @@ The following sgemm implementations are included in this repository:
 ____
 ### Simple sgemm
 <p align="center">
-  <img src="docs/simple_sgemm.png" width="70%"/>
+  <img src="docs/simple_sgemm.png" width="65%"/>
 </p>
 
 ____
 ### Coalesced sgemm
 <p align="center">
-  <img src="docs/coalesced_sgemm.png" width="75%"/>
+  <img src="docs/coalesced_sgemm.png" width="70%"/>
 </p>
 
 ____
