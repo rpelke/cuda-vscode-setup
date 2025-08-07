@@ -159,6 +159,8 @@ int main() {
     static_assert(BN / TN == BK, "BN / TN != BK");
     static_assert(BM / TM == BK, "BM / TM != BK");
     static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
+    static_assert(BK >= VEC_SIZE && BK % VEC_SIZE == 0,
+                  "BK < VEC_SIZE || BK % VEC_SIZE != 0");
     dim3 gridTiled2Dvec(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
     dim3 blockTiled2Dvec(BN / TN, BM / TM, 1);
     run_sgemm_test(
@@ -168,7 +170,7 @@ int main() {
             sgemm_tiled_2d_vectorized<<<grid, block>>>(M, N, K, alpha, A, B,
                                                        beta, C);
         },
-        1.0f, 0.0f, "sgemm_tiled_2d");
+        1.0f, 0.0f, "sgemm_tiled_2d_vectorized");
 
     return 0;
 }

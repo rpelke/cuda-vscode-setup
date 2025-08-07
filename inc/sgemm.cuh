@@ -10,6 +10,9 @@ constexpr int TM = 4;
 constexpr int TN = 2;
 constexpr int BK = 16;
 
+using DTypeVector = float4;
+constexpr int VEC_SIZE = sizeof(DTypeVector) / sizeof(float);
+
 constexpr int BLOCKSIZE = 32;
 constexpr int CEIL_DIV(int a, int b) { return (a + b - 1) / b; }
 

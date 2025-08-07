@@ -1,8 +1,6 @@
 #include "sgemm.cuh"
 #include <cstdio>
 
-constexpr int VEC_SIZE_TN = 2;
-constexpr int VEC_SIZE_TM = 2;
 
 // Tiled 2D SGEMM kernel with vectorized accesses to shared memory
 __global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
@@ -63,18 +61,26 @@ __global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
         B_tile_offs += N * BK;
         __syncthreads();
 
-        float2 *Bs_t2 = reinterpret_cast<float2 *>(Bs_t);
-        float2 *As2 = reinterpret_cast<float2 *>(As);
+        DTypeVector *Bs_t2 = reinterpret_cast<DTypeVector *>(Bs_t);
+        DTypeVector *As_2 = reinterpret_cast<DTypeVector *>(As);
 
         // Each thread computes a TMxTN block
         float tmp[TM][TN] = {0.0f};
+
         for (int tm = 0; tm < TM; ++tm) {
             for (int tn = 0; tn < TN; ++tn) {
-                for (int bk = 0; bk < BK; ++bk) {
-                    tmp[tm][tn] += As[BK * (TM * ty + tm) + bk] *
-                                   Bs_t[BK * (TN * tx + tn) + bk];
-                    // The "untransposed" access would have been:
-                    // Bs[TN * tx + tn + BN * bk]
+                for (int bk = 0; bk < BK; bk += VEC_SIZE) {
+                    // Load VEC_SIZE elements from As and Bs into resgisters
+                    DTypeVector b_vec = Bs_t2[(BK * (TN * tx + tn) + bk) / VEC_SIZE];
+                    DTypeVector a_vec = As_2[(BK * (TM * ty + tm) + bk) / VEC_SIZE];
+
+                    const float* a_data = reinterpret_cast<const float*>(&a_vec);
+                    const float* b_data = reinterpret_cast<const float*>(&b_vec);
+
+                    #pragma unroll
+                    for (int i = 0; i < VEC_SIZE; ++i) {
+                        tmp[tm][tn] += a_data[i] * b_data[i];
+                    }
                 }
             }
         }
