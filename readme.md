@@ -69,22 +69,26 @@ make install
 ```
 
 ## Implementations included
-
+The following sgemm implementations are included in this repository:
+____
 ### Simple sgemm
 <p align="center">
   <img src="docs/simple_sgemm.png" width="70%"/>
 </p>
 
+____
 ### Coalesced sgemm
 <p align="center">
   <img src="docs/coalesced_sgemm.png" width="75%"/>
 </p>
 
+____
 ### Tiled sgemm
 <p align="center">
   <img src="docs/tiled_sgemm.png" width="80%"/>
 </p>
 
+____
 ### 2D-Tiled sgemm
 <p align="center">
   <img src="docs/tiled_2d_sgemm.png" width="90%"/>
