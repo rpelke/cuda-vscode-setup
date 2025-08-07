@@ -1,7 +1,6 @@
 #include "sgemm.cuh"
 #include <cstdio>
 
-
 // Tiled 2D SGEMM kernel with vectorized accesses to shared memory
 __global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
                                           const float *A, const float *B,
@@ -31,8 +30,8 @@ __global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
     }
 
     // Shared-memory buffers for A and B tiles (we transpose B)
-    __shared__ float As[BM * BK];
-    __shared__ float Bs_t[BK * BN];
+    __shared__ __align__(sizeof(float) * VEC_SIZE) float As[BM * BK];
+    __shared__ __align__(sizeof(float) * VEC_SIZE) float Bs_t[BK * BN];
 
     // k = {0, BK, 2*BK, ...}
     for (int k = 0; k < K; k += BK) {
@@ -61,22 +60,34 @@ __global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
         B_tile_offs += N * BK;
         __syncthreads();
 
-        DTypeVector *Bs_t2 = reinterpret_cast<DTypeVector *>(Bs_t);
-        DTypeVector *As_2 = reinterpret_cast<DTypeVector *>(As);
+        DTypeVector *Bs_t_vec = reinterpret_cast<DTypeVector *>(Bs_t);
+        DTypeVector *As_vec = reinterpret_cast<DTypeVector *>(As);
 
         // Each thread computes a TMxTN block
         float tmp[TM][TN] = {0.0f};
 
+        /* This loop read elements from As_vec and Bs_t_vec with vector load
+        operations. Vector operations, e.g., ld.shared.v4.f32, can be check
+        with: 'cuobjdump --dump-ptx <binary_file>'
+        However, the performance seems to be lower than the non-vectorized
+        version. I assume this is due to the transposed vector Bs_t:
+        The access to Bs_t_vec causes bank conflicts. This can be seen with:
+        ncu --metrics l1tex__data_bank_conflicts_pipe_lsu_mem_shared
+        --kernel-name sgemm_tiled_2d <binary_file> */
         for (int tm = 0; tm < TM; ++tm) {
             for (int tn = 0; tn < TN; ++tn) {
                 for (int bk = 0; bk < BK; bk += VEC_SIZE) {
                     // Load VEC_SIZE elements from As and Bs into resgisters
-                    DTypeVector b_vec = Bs_t2[(BK * (TN * tx + tn) + bk) / VEC_SIZE];
-                    DTypeVector a_vec = As_2[(BK * (TM * ty + tm) + bk) / VEC_SIZE];
+                    DTypeVector b_vec =
+                        Bs_t_vec[(BK * (TN * tx + tn) + bk) / VEC_SIZE];
+                    DTypeVector a_vec =
+                        As_vec[(BK * (TM * ty + tm) + bk) / VEC_SIZE];
 
-                    const float* a_data = reinterpret_cast<const float*>(&a_vec);
-                    const float* b_data = reinterpret_cast<const float*>(&b_vec);
-
+                    const float *a_data =
+                        reinterpret_cast<const float *>(&a_vec);
+                    const float *b_data =
+                        reinterpret_cast<const float *>(&b_vec);
+                    
                     #pragma unroll
                     for (int i = 0; i < VEC_SIZE; ++i) {
                         tmp[tm][tn] += a_data[i] * b_data[i];

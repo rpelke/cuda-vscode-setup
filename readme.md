@@ -59,13 +59,16 @@ mkdir -p build/debug/build && cd build/debug/build
 cmake \
     -DCMAKE_BUILD_TYPE={Debug/Release} \
     -DCMAKE_INSTALL_PREFIX=../ \
-    -DCMAKE_CUDA_TOOLKIT_ROOT_DIR=<your path, e.g.: `/usr/local/cuda-12.4`> \
+    -DCMAKE_CUDA_TOOLKIT_ROOT_DIR=<CUDA_PATH, e.g.: `/usr/local/cuda-12.4`> \
     ../../../
 make
 make install
 
 # Execute in main directory
 ./build/{debug/release}/bin/sgemm
+
+# Show instructions
+${CUDA_PATH}/bin/cuobjdump --dump-ptx build/{debug/release}/bin/sgemm
 ```
 
 ## Implementations included
