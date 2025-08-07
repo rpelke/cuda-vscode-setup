@@ -40,7 +40,7 @@
       "id": "kernelName",
       "type": "promptString",
       "description": "Enter the kernel name to profile",
-      "default": "sgemm_naive"
+      "default": "sgemm_simple"
     },
     {
       "id": "section",

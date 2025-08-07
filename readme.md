@@ -46,7 +46,7 @@ To allow all users to run `ncu` without invoking `sudo`, NVIDIA describes a perm
 
 1. (F1) -> (Tasks: Run task) -> (Profile SGEMM with Nsight {sudo/ no sudo})
 
-1. Enter the kernel name, e.g., `sgemm_naive`
+1. Enter the kernel name, e.g., `sgemm_simple`
 
 1. Select the section you want to profile.
 

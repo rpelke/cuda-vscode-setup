@@ -105,16 +105,16 @@ int main() {
     int N = 247;
     int K = 1111;
 
-    // Test naive kernel
-    dim3 gridNaive(BLOCKSIZE, BLOCKSIZE, 1);
-    dim3 blockNaive(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
+    // Test simple kernel
+    dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
+    dim3 gridSimple(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
     run_sgemm_test(
-        M, N, K, gridNaive, blockNaive,
+        M, N, K, gridSimple, blockSimple,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block) {
-            sgemm_naive<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+            sgemm_simple<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
-        1.0f, 0.0f, "sgemm_naive");
+        1.0f, 0.0f, "sgemm_simple");
 
     // Test coalesced kernel
     dim3 blockCoalesced(BLOCKSIZE * BLOCKSIZE);

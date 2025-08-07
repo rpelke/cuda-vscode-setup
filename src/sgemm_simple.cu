@@ -1,6 +1,6 @@
 #include "sgemm.cuh"
 
-__global__ void sgemm_naive(int M, int N, int K, float alpha, const float *A,
+__global__ void sgemm_simple(int M, int N, int K, float alpha, const float *A,
                             const float *B, float beta, float *C) {
     // Position in array C from a global perspective:
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;

@@ -25,7 +25,7 @@ add_executable(
     sgemm
     main.cu
     src/sgemm_cpu.cpp
-    src/sgemm_naive.cu
+    src/sgemm_simple.cu
     src/sgemm_coalesced.cu
     src/sgemm_tiled.cu
     src/sgemm_tiled_2d.cu

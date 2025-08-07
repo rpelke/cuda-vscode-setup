@@ -1,6 +1,6 @@
 #include "sgemm.cuh"
 
-// Naive SGEMM with coalesced access: C = alpha * A @ B + beta * C
+// Simple SGEMM with coalesced access: C = alpha * A @ B + beta * C
 __global__ void sgemm_coalesced(int M, int N, int K, float alpha,
                                 const float *A, const float *B, float beta,
                                 float *C) {
