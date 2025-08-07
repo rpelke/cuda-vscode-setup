@@ -101,9 +101,9 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
 }
 
 int main() {
-    int M = 256;
-    int N = 256;
-    int K = 256;
+    int M = 599;
+    int N = 247;
+    int K = 1111;
 
     // Test naive kernel
     dim3 gridNaive(BLOCKSIZE, BLOCKSIZE, 1);

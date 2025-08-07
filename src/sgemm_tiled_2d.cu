@@ -21,7 +21,10 @@ __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
     // This could also be done later but I use C to store intermediate results
     for (int tm = 0; tm < TM; ++tm) {
         for (int tn = 0; tn < TN; ++tn) {
-            C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] *= beta;
+            if ((bx * BN + tx * TN + tn < N) &&
+                (by * BM + ty * TM + tm < M)) { // bounds check
+                C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] *= beta;
+            }
         }
     }
 
@@ -33,14 +36,23 @@ __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
     for (int k = 0; k < K; k += BK) {
         // Each thread loads TM values into As
         for (int tm = 0; tm < TM; ++tm) {
-            As[BK * (TM * ty + tm) + tx] =
-                A[A_tile_offs + K * (TM * ty + tm) + tx];
+            if ((k + tx < K) && (by * BM + ty * TM + tm < M)) { // bounds check
+                As[BK * (TM * ty + tm) + tx] =
+                    A[A_tile_offs + K * (TM * ty + tm) + tx];
+            } else {
+                As[BK * (TM * ty + tm) + tx] = 0.0f; // out of bounds
+            }
         }
         A_tile_offs += BK;
 
         // Each thread loads TN values into Bs
         for (int tn = 0; tn < TN; ++tn) {
-            Bs[BN * ty + TN * tx + tn] = B[B_tile_offs + N * ty + TN * tx + tn];
+            if ((bx * BN + tx * TN + tn < N) && (k + ty < K)) { // bounds check
+                Bs[BN * ty + TN * tx + tn] =
+                    B[B_tile_offs + N * ty + TN * tx + tn];
+            } else {
+                Bs[BN * ty + TN * tx + tn] = 0.0f; // out of bounds
+            }
         }
         B_tile_offs += N * BK;
         __syncthreads();
@@ -59,9 +71,12 @@ __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
         // Each thread copies its part of the block to C
         for (int tm = 0; tm < TM; ++tm) {
             for (int tn = 0; tn < TN; ++tn) {
-                C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] =
-                    alpha * tmp[tm][tn] +
-                    C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn];
+                if ((bx * BN + tx * TN + tn < N) &&
+                    (by * BM + ty * TM + tm < M)) { // bounds check
+                    C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] =
+                        alpha * tmp[tm][tn] +
+                        C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn];
+                }
             }
         }
         __syncthreads();
