@@ -67,3 +67,25 @@ make install
 # Execute in main directory
 ./build/{debug/release}/bin/sgemm
 ```
+
+## Implementations included
+
+### Simple sgemm
+<p align="center">
+  <img src="docs/simple_sgemm.png" width="70%"/>
+</p>
+
+### Coalesced sgemm
+<p align="center">
+  <img src="docs/coalesced_sgemm.png" width="75%"/>
+</p>
+
+### Tiled sgemm
+<p align="center">
+  <img src="docs/tiled_sgemm.png" width="80%"/>
+</p>
+
+### 2D-Tiled sgemm
+<p align="center">
+  <img src="docs/tiled_2d_sgemm.png" width="90%"/>
+</p>
