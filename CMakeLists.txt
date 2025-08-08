@@ -29,7 +29,8 @@ add_executable(
     src/sgemm_coalesced.cu
     src/sgemm_tiled.cu
     src/sgemm_tiled_2d.cu
-    src/sgemm_tiled_2d_vectorized.cu
+    src/sgemm_tiled_2d_vectorized_1.cu
+    src/sgemm_tiled_2d_vectorized_2.cu
 )
 target_include_directories(
     sgemm

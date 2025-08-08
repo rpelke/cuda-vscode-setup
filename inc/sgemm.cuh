@@ -5,9 +5,9 @@
 #include <vector>
 
 constexpr int BM = 64;
-constexpr int BN = 32;
+constexpr int BN = 64;
 constexpr int TM = 4;
-constexpr int TN = 2;
+constexpr int TN = 4;
 constexpr int BK = 16;
 
 using DTypeVector = float4;
@@ -28,8 +28,11 @@ __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
                             const float *B, float beta, float *C);
 __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
                                const float *B, float beta, float *C);
-__global__ void sgemm_tiled_2d_vectorized(int M, int N, int K, float alpha,
-                                          const float *A, const float *B,
-                                          float beta, float *C);
+__global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
+                                            const float *A, const float *B,
+                                            float beta, float *C);
+__global__ void sgemm_tiled_2d_vectorized_2(int M, int N, int K, float alpha,
+                                            const float *A, const float *B,
+                                            float beta, float *C);
 
 #endif // SGEMM_KERNELS_CUH

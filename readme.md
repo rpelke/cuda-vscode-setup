@@ -92,13 +92,13 @@ ____
 </p>
 
 ____
-### 2D-Tiled sgemm
+### 2D-Tiled sgemm & 2D-Tiled sgemm (vectorized v2)
 <p align="center">
-  <img src="docs/tiled_2d_sgemm.png" width="90%"/>
+  <img src="docs/tiled_2d+vectorized2_sgemm.png" width="90%"/>
 </p>
 
 ____
-### 2D-Tiled sgemm (vectorized)
+### 2D-Tiled sgemm (vectorized v1)
 <p align="center">
-  <img src="docs/tiled_2d_vectorized_sgemm.png" width="92%"/>
+  <img src="docs/tiled_2d_vectorized1_sgemm.png" width="92%"/>
 </p>

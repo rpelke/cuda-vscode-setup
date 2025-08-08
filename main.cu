@@ -102,9 +102,9 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
 }
 
 int main() {
-    int M = 599;
-    int N = 247;
-    int K = 1111;
+    int M = 1023;
+    int N = 1025;
+    int K = 1029;
 
     // Test simple kernel
     dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
@@ -167,10 +167,28 @@ int main() {
         M, N, K, gridTiled2Dvec, blockTiled2Dvec,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
-            sgemm_tiled_2d_vectorized<<<grid, block>>>(M, N, K, alpha, A, B,
-                                                       beta, C);
+            sgemm_tiled_2d_vectorized_1<<<grid, block>>>(M, N, K, alpha, A, B,
+                                                         beta, C);
         },
-        1.0f, 0.0f, "sgemm_tiled_2d_vectorized");
+        1.0f, 0.0f, "sgemm_tiled_2d_vectorized_1");
+
+    // Test tiled 2D kernel with vectorization
+    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN / TN == BK, "BN / TN != BK");
+    static_assert(BM / TM == BK, "BM / TM != BK");
+    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
+    static_assert(BK >= VEC_SIZE && BK % VEC_SIZE == 0,
+                  "BK < VEC_SIZE || BK % VEC_SIZE != 0");
+    static_assert((TN >= VEC_SIZE) && (TN % VEC_SIZE) == 0,
+                  "TN < VEC_SIZE || TN % VEC_SIZE != 0");
+    run_sgemm_test(
+        M, N, K, gridTiled2Dvec, blockTiled2Dvec,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
+            sgemm_tiled_2d_vectorized_2<<<grid, block>>>(M, N, K, alpha, A, B,
+                                                         beta, C);
+        },
+        1.0f, 0.0f, "sgemm_tiled_2d_vectorized_2");
 
     return 0;
 }
