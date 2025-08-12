@@ -9,8 +9,10 @@ constexpr int BN = 64;
 constexpr int TM = 4;
 constexpr int TN = 4;
 constexpr int BK = 16;
+constexpr int WN = 8;
+constexpr int WM = 8;
 
-using DTypeVector = float4;
+using DTypeVector = float2;
 constexpr int VEC_SIZE = sizeof(DTypeVector) / sizeof(float);
 
 constexpr int BLOCKSIZE = 32;
@@ -34,5 +36,8 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
 __global__ void sgemm_tiled_2d_vectorized_2(int M, int N, int K, float alpha,
                                             const float *A, const float *B,
                                             float beta, float *C);
+__global__ void sgemm_warptiling(int M, int N, int K, float alpha,
+                                 const float *A, const float *B, float beta,
+                                 float *C);
 
 #endif // SGEMM_KERNELS_CUH

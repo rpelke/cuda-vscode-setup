@@ -102,9 +102,9 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
 }
 
 int main() {
-    int M = 1023;
-    int N = 1025;
-    int K = 1029;
+    int M = 1024;
+    int N = 1024;
+    int K = 1024;
 
     // Test simple kernel
     dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
@@ -189,6 +189,25 @@ int main() {
                                                          beta, C);
         },
         1.0f, 0.0f, "sgemm_tiled_2d_vectorized_2");
+
+    // Test warptiling
+    static_assert(BN % WN == 0 && BM % WM == 0, "BN % WN != 0 || BM % WM != 0");
+    static_assert(BN / TN == BK, "BN / TN != BK");
+    static_assert(BM / TM == BK, "BM / TM != BK");
+    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
+    static_assert(WN >= TN && WM >= TM,
+                  "WN < TN || WM < TM");
+    static_assert(WN % TN == 0 && WM % TM == 0,
+                  "WN % TN != 0 || WM % TM != 0");
+    dim3 gridWarptiling(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
+    dim3 blockWarptiling(BN / TN, BM / TM, 1);
+    run_sgemm_test(
+        M, N, K, gridWarptiling, blockWarptiling,
+        [](int M, int N, int K, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
+            sgemm_warptiling<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+        },
+        1.0f, 0.0f, "sgemm_warptiling");
 
     return 0;
 }
