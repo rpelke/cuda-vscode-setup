@@ -1,13 +1,14 @@
 {
-    // Change this to the path of your CUDA toolkit installation
-    "CudaToolkitPath": "/usr/local/cuda-12.4",
-
+    "terminal.integrated.env.linux": {
+        // Change this to the path of your CUDA toolkit installation
+        "CUDA_PATH": "/usr/local/cuda-12.4"
+    },
     "cmake.buildDirectory": "${workspaceFolder}/build/${variant:buildType}/build",
     "cmake.installPrefix": "${workspaceFolder}/build/${variant:buildType}",
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
     "cmake.exportCompileCommandsFile": true,
     "cmake.configureSettings": {
-        "CMAKE_CUDA_TOOLKIT_ROOT_DIR": "${config:CudaToolkitPath}",
+        "CMAKE_CUDA_COMPILER": "$env{CUDA_PATH}/bin/nvcc",
         "CMAKE_BUILD_TYPE": "${variant:buildType}"
     }
 }
