@@ -2,6 +2,7 @@
 build
 *.nsys-rep
 *.sqlite
+*.ncu-rep
 
 # VSCode
 compile_commands.json

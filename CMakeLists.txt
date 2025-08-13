@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CUDA_FLAGS_DEBUG
     "${CMAKE_CUDA_FLAGS_DEBUG} -G -g -O0")
 
+option(CMAKE_ENABLE_TRACING "Enable CUDA lineinfo for profiling/tracing" OFF)
+
 add_executable(
     sgemm
     main.cu
@@ -20,6 +22,18 @@ add_executable(
     src/sgemm_tiled_2d_vectorized_2.cu
     src/sgemm_warptiling.cu
 )
+
+if(CMAKE_ENABLE_TRACING)
+  message(STATUS "CUDA tracing enabled: adding -lineinfo and -Xptxas=-v")
+  target_compile_options(sgemm PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
+    $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>
+    #$<$<COMPILE_LANGUAGE:CUDA>:-Xptxas -O0>
+  )
+endif()
+
+message(STATUS "CUDA_FLAGS_RELEASE: ${CMAKE_CUDA_FLAGS_RELEASE}")
+
 target_include_directories(
     sgemm
     PRIVATE inc

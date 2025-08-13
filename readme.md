@@ -102,3 +102,22 @@ ____
 <p align="center">
   <img src="docs/tiled_2d_vectorized1_sgemm.png" width="92%"/>
 </p>
+
+
+## Tracing
+
+1. Enable the collection of tracing information in the [settings.json](.vscode/settings.json).
+
+1. Trace the kernel <my_kernel>, e.g. `sgemm_warptiling`:
+    ```bash
+    ${CUDA_PATH}/bin/ncu \
+      --set full -f \
+      --kernel-name <my_kernel> \
+      --export sgemm.ncu-rep \
+      ./build/release/bin/sgemm
+    ```
+
+1. Open the file with nsight:
+    ```bash
+    ${CUDA_PATH}/bin/ncu-ui sgemm.ncu-rep
+    ```

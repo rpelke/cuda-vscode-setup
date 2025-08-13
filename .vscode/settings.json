@@ -9,6 +9,7 @@
     "cmake.exportCompileCommandsFile": true,
     "cmake.configureSettings": {
         "CMAKE_CUDA_COMPILER": "$env{CUDA_PATH}/bin/nvcc",
-        "CMAKE_BUILD_TYPE": "${variant:buildType}"
+        "CMAKE_BUILD_TYPE": "${variant:buildType}",
+        "CMAKE_ENABLE_TRACING": "ON" // Enable/disable tracing information (for ncu)
     }
 }
