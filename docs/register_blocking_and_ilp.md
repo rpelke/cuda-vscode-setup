@@ -5,21 +5,33 @@ Both optimization techniques are closely related because they operate within a s
 - **Register blocking**: Registers are the fastest available memory on the GPU. Values should be loaded from slower memory (like global or shared memory) into registers and reused as much as possible to avoid redundant memory accesses.
 - **ILP**: Independent consecutive instructions can be executed in parallel.
 
+
+### ILP on GPUs vs. Superscalar CPUs
 To be honest, the concept of ILP confused me at first because I initially knew it only in the context of [superscalar processors](https://en.wikipedia.org/wiki/Superscalar_processor).
-In the context of CPUs, ILP usually means that two or more instructions can be executed in parallel on different duplicate ALUs but only if there are no data dependencies between them.
+In the context of CPUs, ILP usually means that two or more instructions can be executed in parallel on different "duplicated" ALUs but only if there are no data dependencies between them.
 This idea also applies to GPUs. Most modern GPUs have multiple functional units, such as for integer and floating-point arithmetic. These can be used in parallel by different instructions if the hardware and scheduler allow it.
 
-However, there's another closely related concept: achiving a high **issue rate**.
-This is analogous to reducing pipeline stalls on CPUs. A CPU pipeline typically consists of several stages (in a pipelined processor). A classic 5-stage pipeline includes:
+
+### Instruction Issue Rate in GPUs and CPUs
+Closely related to ILP is the goal of achieving a high **instruction issue rate**:
+the rate at which new instructions are sent into execution.
+
+In CPUs, this usually means keeping the CPU pipeline fed with new instructions every cycle to avoid stalls caused by dependencies or resource conflicts.
+A CPU pipeline typically consists of several stages (in a pipelined processor). A classic 5-stage pipeline includes:
 Fetch, Decode, Execute, Memory Access, and Write Back.
 This means that, ideally, 5 different instructions are being processed simultaneously, but each in a different stage.
 
 **Stalling** happens when some instructions depend on the results of earlier ones. In that case, the CPU must pause parts of the pipeline to wait for data, which reduces instruction throughput and increases latency.
-A common type of dependency is a read-after-write (RAW) hazard, where instruction 2 needs a value computed by instruction 1. To maintain correctness, the processor must ensure that instruction 2 doesn't read the wrong (old) value, potentially requiring a pipeline stall.
+A common type of dependency is a read-after-write (RAW) hazard, where instruction 2 needs a value computed by instruction 1. To maintain correctness, the processor must ensure that instruction 2 doesn't read the wrong (old) value.
 So, both hardware and software aim to avoid such stalls to keep the pipeline running smootly.
 On the software side, compilers can perform optimizations such as **loop unrolling** and **instruction reordering** to increase instruction-level parallelism and reduce dependencies.
 On the hardware side, techniques like **bypassing** (also called **forwarding**) are used. These allow intermediate results to be forwarded directly from a functional unit's output back to its input without taking a detour through a register file.
 
+GPUs work on the same basic idea:
+once an instruction is issued, the scheduler can either send another **independent instruction from the same warp** (ILP) or **switch to a different warp** that has no pending dependencies (Thread-Level Parallelism (TLP)).
+
+
+### Instruction Issuing and Pipelining in the Turing Streaming Multiprocessor (SM)
 The same ideas apply to GPUs. Let's look more closely at what happens inside a Streaming Multiprocessor (SM).
 Therefore, we'll take a closer look at the [Turing Architecture](https://en.wikipedia.org/wiki/Turing_(microarchitecture)), since I'll later benchmark on an NVIDIA GeForce RTX 2080 Ti.
 
@@ -30,25 +42,27 @@ According to the offical Turing [documentation](https://images.nvidia.com/aem-da
 Each warp scheduler is responsible for choosing which warp to execute next based on readiness (e.g., no pending dependencies), data availability, and whether the required functional units are free.
 The dispatch unit sends the selected instruction to a specific execution path, commonly called a 'pipeline' or 'pipe', that is optimized for a certain instruction type, such as FP32, INT32, or load/store operations.
 
-Moreover, the [tuning guide](https://docs.nvidia.com/cuda/turing-tuning-guide/index.html?utm_source=chatgpt.com) provides several relevant insights:
+
+Moreover, the [tuning guide](https://docs.nvidia.com/cuda/turing-tuning-guide/#instruction-scheduling) provides several relevant insights:
 
 - Instructions are performed over **two** cycles.
 - The schedulers can issue independent instructions **every** cycle.
 - Dependent instruction issue latency for core FMA math operations **four** clock cycles. 
 
-And then it concludes: Execution latencies of math operations can be hidden
-1. "by as few as 4 warps per SM, assuming 4-way instruction-level parallelism ILP per warp."
-1. "by 16 warps per SM without any instuction-level parallelism."
+And then it concludes:
+> "Execution latencies of core math operations can be hidden by as few as **4 warps per SM, assuming 4-way ILP per warp**, or by **16 warps per SM without any ILP**."
 
 At first, this seemed contradictory to me.
 On one hand, dependent instructions have an issue latency of 4 cycles, and the scheduler can issue one instruction per cycle.
 On the other hand, each instruction requires two cycles, since only 16 cores (FP32 or INT32) are available per warp scheduler, but a warp has 32 threads.
-
 How can a single warp issue 4 instructions in 4 cycles if each instruction takes 2 cycles?
-Here's how I interpret this information (correct me if I'm wrong):
+
+
+### Some Take-Aways
+Here's how I interpret the previous information (correct me if I'm wrong):
 
 1. Each warp scheduler can issue one instruction per cycle, as long as the instructions are independent and target different functional units.
 For example: `INT32 -> FP32 -> INT32 -> FP32` works.
 But `4x INT32` in a row does not work since one instruction requires two cycles.
-1. For the same math pipe, e.g., INT32, the schedular can issue a new instrcution every 2 cycles.
+1. For the same math pipe, e.g., INT32, one schedular can issue a new instrcution every 2 cycles.
 1. An SM has 64 FP32 and 64 INT32 cores in total. It can execute, e.g., four INT32 operations in parallel, but only if these operations belong to four different warps, each scheduled by a different warp scheduler.
