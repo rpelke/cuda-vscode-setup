@@ -108,6 +108,12 @@ ____
   <img src="docs/figures/tiled_2d_vectorized1_sgemm.png" width="92%"/>
 </p>
 
+____
+### 2D Warptiling
+<p align="center">
+  <img src="docs/figures/warptiling.png" width="92%"/>
+</p>
+
 
 ## Tracing
 
