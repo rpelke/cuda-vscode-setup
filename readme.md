@@ -1,4 +1,4 @@
-# Writing CUDA Kernels - A VSCode Setup
+# Writing CUDA Kernels - A VSCode Setup & Tutorial
 This repository is designed to simplify your introduction to CUDA kernel development by providing a ready-to-use VSCode setup. With it, you can both profile your kernels and debug them directly from the VSCode editor, so you can dive into online tutorials immediately without wrestling with your toolchain first.
 - Build system: [CMake](CMakeLists.txt)
 - Example kernels: simple GEMM operations, inspired by the tutorials from [siboehm](https://siboehm.com/articles/22/CUDA-MMM) and [leimao](https://leimao.github.io/article/CUDA-Matrix-Multiplication-Optimization/).
@@ -23,6 +23,7 @@ This repository is designed to simplify your introduction to CUDA kernel develop
 
 
 ## Run and debug kernels in VSCode
+
 The run and debug configurations can be found in the [launch.json](.vscode/launch.json) file.
 
 To just run the kernel (release version), select:
@@ -35,6 +36,7 @@ To set breakpoints in VSCode to debug the host code and/or the GPU code, select:
 
 
 ## Profile the kernels in VSCode
+
 To collect meaningful performance metrics, you should always profile the **release** version of your kernel.
 
 By default, NVIDIA’s profiler (`ncu`) requires **elevated (root)** privileges to access GPU performance counters.
@@ -54,6 +56,7 @@ To allow all users to run `ncu` without invoking `sudo`, NVIDIA describes a perm
 
 
 ## Build sgemm kernels in terminal
+
 ```bash
 mkdir -p build/debug/build && cd build/debug/build
 cmake \
@@ -71,7 +74,9 @@ make install
 ${CUDA_PATH}/bin/cuobjdump --dump-ptx build/{debug/release}/bin/sgemm
 ```
 
+
 ## Implementations included
+
 The following sgemm implementations are included in this repository:
 ____
 ### Simple sgemm
