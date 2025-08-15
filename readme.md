@@ -81,37 +81,37 @@ The following sgemm implementations are included in this repository:
 ____
 ### Simple sgemm
 <p align="center">
-  <img src="docs/figures/simple_sgemm.png" width="65%"/>
+  <img src="docs/figures/00_simple_sgemm.png" width="65%"/>
 </p>
 
 ____
 ### Coalesced sgemm
 <p align="center">
-  <img src="docs/figures/coalesced_sgemm.png" width="70%"/>
+  <img src="docs/figures/01_coalesced_sgemm.png" width="70%"/>
 </p>
 
 ____
 ### Tiled sgemm
 <p align="center">
-  <img src="docs/figures/tiled_sgemm.png" width="80%"/>
+  <img src="docs/figures/02_tiled_sgemm.png" width="80%"/>
 </p>
 
 ____
 ### 2D-Tiled sgemm & 2D-Tiled sgemm (vectorized v2)
 <p align="center">
-  <img src="docs/figures/tiled_2d+vectorized2_sgemm.png" width="90%"/>
+  <img src="docs/figures/03_05_tiled_2d+vectorized2_sgemm.png" width="90%"/>
 </p>
 
 ____
 ### 2D-Tiled sgemm (vectorized v1)
 <p align="center">
-  <img src="docs/figures/tiled_2d_vectorized1_sgemm.png" width="92%"/>
+  <img src="docs/figures/04_tiled_2d_vectorized1_sgemm.png" width="92%"/>
 </p>
 
 ____
 ### 2D Warptiling
 <p align="center">
-  <img src="docs/figures/warptiling.png" width="92%"/>
+  <img src="docs/figures/06_warptiling_sgemm.png" width="92%"/>
 </p>
 
 

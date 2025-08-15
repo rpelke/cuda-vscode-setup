@@ -1,5 +1,6 @@
 #include "sgemm.cuh"
 #include <cstdio>
+#include <nvtx3/nvToolsExt.h>
 
 // Tiled 2D SGEMM kernel with warptiling
 // Each thread processes TMxTN block
@@ -54,8 +55,11 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
         B_tile_offs += N * BK;
         __syncthreads();
 
-        // Each thread computes a TMxTN block
+        // Temporary results of the TMxTN mini-GEMM within a thread
         float tmp[TM][TN] = {0.0f};
+
+        // *******************************************************************
+        // ***** This part will be discussed in "docs/01_register_blocking.md"
         for (int tm = 0; tm < TM; ++tm) {
             for (int tn = 0; tn < TN; ++tn) {
                 for (int bk = 0; bk < BK; ++bk) {
@@ -64,6 +68,7 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
                 }
             }
         }
+        // *******************************************************************
 
         // Each thread copies its part of the block to C
         for (int tm = 0; tm < TM; ++tm) {
@@ -77,3 +82,16 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
         __syncthreads();
     }
 }
+
+/* 1-D Blockdimension with (BN / TN) * (BM / TM) threads.
+Launch:
+    dim3 blockWarptiling((BN / TN) * (BM / TM), 1, 1);
+
+Kernel:
+    unsigned int wx = threadIdx.x / ((BM / TM) * (WN / TN));
+    unsigned int w_block_num = threadIdx.x / ((WN / TN) * (WM / TM));
+    unsigned int wy = w_block_num % (BM / WM);
+    unsigned int tx = threadIdx.x % (WN / TN);
+    unsigned int t_row_id = threadIdx.x / (WN / TN);
+    unsigned int ty = t_row_id % (WM / TM);
+*/

@@ -5,12 +5,12 @@
 #include <vector>
 
 constexpr int BM = 64;
-constexpr int BN = 64;
+constexpr int BN = 32;
 constexpr int TM = 4;
-constexpr int TN = 4;
+constexpr int TN = 2;
 constexpr int BK = 16;
-constexpr int WN = 8;
-constexpr int WM = 8;
+constexpr int WN = 16;
+constexpr int WM = 16;
 
 using DTypeVector = float2;
 constexpr int VEC_SIZE = sizeof(DTypeVector) / sizeof(float);

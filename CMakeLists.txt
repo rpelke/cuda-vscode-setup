@@ -14,13 +14,13 @@ add_executable(
     sgemm
     main.cu
     src/sgemm_cpu.cpp
-    src/sgemm_simple.cu
-    src/sgemm_coalesced.cu
-    src/sgemm_tiled.cu
-    src/sgemm_tiled_2d.cu
-    src/sgemm_tiled_2d_vectorized_1.cu
-    src/sgemm_tiled_2d_vectorized_2.cu
-    src/sgemm_warptiling.cu
+    src/00_sgemm_simple.cu
+    src/01_sgemm_coalesced.cu
+    src/02_sgemm_tiled.cu
+    src/03_sgemm_tiled_2d.cu
+    src/04_sgemm_tiled_2d_vectorized_1.cu
+    src/05_sgemm_tiled_2d_vectorized_2.cu
+    src/06_sgemm_warptiling.cu
 )
 
 if(CMAKE_ENABLE_TRACING)
@@ -28,11 +28,8 @@ if(CMAKE_ENABLE_TRACING)
   target_compile_options(sgemm PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
     $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>
-    #$<$<COMPILE_LANGUAGE:CUDA>:-Xptxas -O0>
   )
 endif()
-
-message(STATUS "CUDA_FLAGS_RELEASE: ${CMAKE_CUDA_FLAGS_RELEASE}")
 
 target_include_directories(
     sgemm
