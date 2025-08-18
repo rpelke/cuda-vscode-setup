@@ -106,10 +106,6 @@ int main() {
     int N_0 = 1023;
     int K_0 = 1025;
 
-    int M_1 = 1024;
-    int N_1 = 1024;
-    int K_1 = 1024;
-
     // 00: Test simple kernel
     dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
     dim3 gridSimple(CEIL_DIV(M_0, BLOCKSIZE), CEIL_DIV(N_0, BLOCKSIZE), 1);
@@ -206,10 +202,10 @@ int main() {
     static_assert(WN_06 >= TN_06 && WM_06 >= TM_06, "WN < TN || WM < TM");
     static_assert(WN_06 % TN_06 == 0 && WM_06 % TM_06 == 0,
                   "WN % TN != 0 || WM % TM != 0");
-    dim3 gridWarptiling(CEIL_DIV(N_1, BN_06), CEIL_DIV(M_1, BM_06), 1);
+    dim3 gridWarptiling(CEIL_DIV(N_0, BN_06), CEIL_DIV(M_0, BM_06), 1);
     dim3 blockWarptiling(BN_06 / TN_06, BM_06 / TM_06, 1);
     run_sgemm_test(
-        M_1, N_1, K_1, gridWarptiling, blockWarptiling,
+        M_0, N_0, K_0, gridWarptiling, blockWarptiling,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_warptiling<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);

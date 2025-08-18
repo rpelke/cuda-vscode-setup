@@ -27,8 +27,11 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
     // This could also be done later but I use C to store intermediate results
     for (int tm = 0; tm < TM_06; ++tm) {
         for (int tn = 0; tn < TN_06; ++tn) {
-            C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) + WN_06 * wx +
-              TN_06 * tx + tn] *= beta;
+            if ((BN_06 * bx + WN_06 * wx + TN_06 * tx + tn < N) &&
+                (BM_06 * by + WM_06 * wy + TM_06 * ty + tm < M)) {
+                C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
+                  WN_06 * wx + TN_06 * tx + tn] *= beta;
+            }
         }
     }
 
@@ -40,17 +43,31 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
     for (int k = 0; k < K; k += BK_06) {
         // Each thread loads TM_06 values into As
         for (int tm = 0; tm < TM_06; ++tm) {
-            As[BK_06 * (WM_06 * wy + TM_06 * ty + tm) + (WN_06 / TN_06) * wx +
-               tx] = A[A_tile_offs + K * (WM_06 * wy + TM_06 * ty + tm) +
-                       (WN_06 / TN_06) * wx + tx];
+            if ((k + (WN_06 / TN_06) * wx + tx < K) &&
+                (BM_06 * by + WM_06 * wy + TM_06 * ty + tm < M)) {
+                As[BK_06 * (WM_06 * wy + TM_06 * ty + tm) +
+                   (WN_06 / TN_06) * wx + tx] =
+                    A[A_tile_offs + K * (WM_06 * wy + TM_06 * ty + tm) +
+                      (WN_06 / TN_06) * wx + tx];
+            } else {
+                As[BK_06 * (WM_06 * wy + TM_06 * ty + tm) +
+                   (WN_06 / TN_06) * wx + tx] = 0.0f;
+            }
         }
         A_tile_offs += BK_06;
 
         // Each thread loads TN_06 values into Bs
         for (int tn = 0; tn < TN_06; ++tn) {
-            Bs[BN_06 * ((WM_06 / TM_06) * wy + ty) + WN_06 * wx + TN_06 * tx +
-               tn] = B[B_tile_offs + N * ((WM_06 / TM_06) * wy + ty) +
-                       WN_06 * wx + TN_06 * tx + tn];
+            if ((BN_06 * bx + WN_06 * wx + TN_06 * tx + tn < N) &&
+                (k + (WM_06 / TM_06) * wy + ty < K)) {
+                Bs[BN_06 * ((WM_06 / TM_06) * wy + ty) + WN_06 * wx +
+                   TN_06 * tx + tn] =
+                    B[B_tile_offs + N * ((WM_06 / TM_06) * wy + ty) +
+                      WN_06 * wx + TN_06 * tx + tn];
+            } else {
+                Bs[BN_06 * ((WM_06 / TM_06) * wy + ty) + WN_06 * wx +
+                   TN_06 * tx + tn] = 0.0f;
+            }
         }
         B_tile_offs += N * BK_06;
         __syncthreads();
@@ -74,11 +91,13 @@ __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
         // Each thread copies its part of the block to C
         for (int tm = 0; tm < TM_06; ++tm) {
             for (int tn = 0; tn < TN_06; ++tn) {
-                C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
-                  WN_06 * wx + TN_06 * tx + tn] =
-                    alpha * tmp[tm][tn] +
-                    C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
-                      WN_06 * wx + TN_06 * tx + tn];
+                if ((bx * BN_06 + WN_06 * wx + TN_06 * tx + tn < N) &&
+                    (by * BM_06 + WM_06 * wy + TM_06 * ty + tm < M)) {
+                    const unsigned int C_elem_addr =
+                        C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
+                        WN_06 * wx + TN_06 * tx + tn;
+                    C[C_elem_addr] = alpha * tmp[tm][tn] + C[C_elem_addr];
+                }
             }
         }
         __syncthreads();
