@@ -1,15 +1,13 @@
 {
-    "terminal.integrated.env.linux": {
-        // Change this to the path of your CUDA toolkit installation
-        "CUDA_PATH": "/usr/local/cuda-12.4"
-    },
     "cmake.buildDirectory": "${workspaceFolder}/build/${variant:buildType}/build",
     "cmake.installPrefix": "${workspaceFolder}/build/${variant:buildType}",
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
     "cmake.exportCompileCommandsFile": true,
     "cmake.configureSettings": {
-        "CMAKE_CUDA_COMPILER": "$env{CUDA_PATH}/bin/nvcc",
+        "CUDA_PATH": "/usr/local/cuda-12.4", // Change this path
+        "CMAKE_CUDA_COMPILER": "/usr/local/cuda-12.4/bin/nvcc", // Change this path
         "CMAKE_BUILD_TYPE": "${variant:buildType}",
         "CMAKE_ENABLE_TRACING": "ON" // Enable/disable tracing information (for ncu)
-    }
+    },
+    "clang-format.executable": "/usr/bin/clang-format"
 }

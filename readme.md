@@ -13,7 +13,7 @@ This repository is designed to simplify your introduction to CUDA kernel develop
     - (For style formatting only) Clang-format
     - (If Python is used) Python & Python Extension Pack
 
-1. Adapt the `CUDA_PATH` variable in the [settings.json](.vscode/settings.json) file.
+1. Adapt the pathes in the [settings.json](.vscode/settings.json) file.
 
 1. Select the build variant (Release or Debug): (F1) -> (CMake: Select Variant)
 
@@ -25,6 +25,8 @@ This repository is designed to simplify your introduction to CUDA kernel develop
 ## Run and debug kernels in VSCode
 
 The run and debug configurations can be found in the [launch.json](.vscode/launch.json) file.
+
+Adapt the pathes in the [launch.json](.vscode/launch.json) file.
 
 To just run the kernel (release version), select:
 

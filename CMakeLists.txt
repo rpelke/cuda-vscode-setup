@@ -34,6 +34,7 @@ endif()
 target_include_directories(
     sgemm
     PRIVATE inc
+    PRIVATE ${CUDA_PATH}/include
 )
 install(
     TARGETS sgemm

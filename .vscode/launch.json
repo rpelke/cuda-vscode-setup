@@ -14,7 +14,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}",
-            "miDebuggerPath": "${env:CUDA_PATH}/bin/cuda-gdb",
+            "miDebuggerPath": "/usr/local/cuda-12.4/bin/cuda-gdb", // Change this path
         }
     ]
 }

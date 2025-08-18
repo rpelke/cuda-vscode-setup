@@ -102,69 +102,75 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
 }
 
 int main() {
-    int M = 1024;
-    int N = 1024;
-    int K = 1024;
+    int M_0 = 1027;
+    int N_0 = 1023;
+    int K_0 = 1025;
 
-    // Test simple kernel
+    int M_1 = 1024;
+    int N_1 = 1024;
+    int K_1 = 1024;
+
+    // 00: Test simple kernel
     dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
-    dim3 gridSimple(CEIL_DIV(M, BLOCKSIZE), CEIL_DIV(N, BLOCKSIZE), 1);
+    dim3 gridSimple(CEIL_DIV(M_0, BLOCKSIZE), CEIL_DIV(N_0, BLOCKSIZE), 1);
     run_sgemm_test(
-        M, N, K, gridSimple, blockSimple,
+        M_0, N_0, K_0, gridSimple, blockSimple,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block) {
             sgemm_simple<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
         1.0f, 0.0f, "sgemm_simple");
 
-    // Test coalesced kernel
+    // 01: Test coalesced kernel
     dim3 blockCoalesced(BLOCKSIZE * BLOCKSIZE);
-    dim3 gridCoalesced(CEIL_DIV(N, BLOCKSIZE), CEIL_DIV(M, BLOCKSIZE), 1);
+    dim3 gridCoalesced(CEIL_DIV(N_0, BLOCKSIZE), CEIL_DIV(M_0, BLOCKSIZE), 1);
     run_sgemm_test(
-        M, N, K, gridCoalesced, blockCoalesced,
+        M_0, N_0, K_0, gridCoalesced, blockCoalesced,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block) {
             sgemm_coalesced<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
         1.0f, 0.0f, "sgemm_coalesced");
 
-    // Test tiled kernel
+    // 02: Test tiled kernel
     dim3 blockTiled(BLOCKSIZE, BLOCKSIZE, 1);
-    dim3 gridTiled(CEIL_DIV(N, BLOCKSIZE), CEIL_DIV(M, BLOCKSIZE), 1);
+    dim3 gridTiled(CEIL_DIV(N_0, BLOCKSIZE), CEIL_DIV(M_0, BLOCKSIZE), 1);
     run_sgemm_test(
-        M, N, K, gridTiled, blockTiled,
+        M_0, N_0, K_0, gridTiled, blockTiled,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block) {
             sgemm_tiled<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
         1.0f, 0.0f, "sgemm_tiled");
 
-    // Test tiled 2D kernel
-    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
-    static_assert(BN / TN == BK, "BN / TN != BK");
-    static_assert(BM / TM == BK, "BM / TM != BK");
-    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
-    dim3 gridTiled2D(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
-    dim3 blockTiled2D(BN / TN, BM / TM, 1);
+    // 03: Test tiled 2D kernel
+    static_assert(BN_03 % TN_03 == 0 && BM_03 % TM_03 == 0,
+                  "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN_03 / TN_03 == BK_03, "BN / TN != BK");
+    static_assert(BM_03 / TM_03 == BK_03, "BM / TM != BK");
+    static_assert(BK_03 >= TM_03 && BK_03 >= TN_03, "BK < TM || BK < TN");
+    dim3 gridTiled2D(CEIL_DIV(N_0, BN_03), CEIL_DIV(M_0, BM_03), 1);
+    dim3 blockTiled2D(BN_03 / TN_03, BM_03 / TM_03, 1);
     run_sgemm_test(
-        M, N, K, gridTiled2D, blockTiled2D,
+        M_0, N_0, K_0, gridTiled2D, blockTiled2D,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_tiled_2d<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
         },
         1.0f, 0.0f, "sgemm_tiled_2d");
 
-    // Test tiled 2D kernel with vectorization
-    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
-    static_assert(BN / TN == BK, "BN / TN != BK");
-    static_assert(BM / TM == BK, "BM / TM != BK");
-    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
-    static_assert(BK >= VEC_SIZE && BK % VEC_SIZE == 0,
-                  "BK < VEC_SIZE || BK % VEC_SIZE != 0");
-    dim3 gridTiled2Dvec(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
-    dim3 blockTiled2Dvec(BN / TN, BM / TM, 1);
+    // 04: Test tiled 2D kernel with vectorization
+    static_assert(BN_04 % TN_04 == 0 && BM_04 % TM_04 == 0,
+                  "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN_04 / TN_04 == BK_04, "BN / TN != BK");
+    static_assert(BM_04 / TM_04 == BK_04, "BM / TM != BK");
+    static_assert(BK_04 >= TM_04 && BK_04 >= TN_04, "BK < TM || BK < TN");
+    static_assert(BK_04 >= VEC_SIZE_04 && BK_04 % VEC_SIZE_04 == 0,
+                  "BK < VEC_SIZE_04 || BK % VEC_SIZE_04 != 0");
+    dim3 gridTiled2Dvec(CEIL_DIV(N_0, BN_04), CEIL_DIV(M_0, BM_04), 1);
+    dim3 blockTiled2Dvec(BN_04 / TN_04, BM_04 / TM_04, 1);
     run_sgemm_test(
-        M, N, K, gridTiled2Dvec, blockTiled2Dvec,
+        M_0, N_0, K_0, gridTiled2Dvec, blockTiled2Dvec,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_tiled_2d_vectorized_1<<<grid, block>>>(M, N, K, alpha, A, B,
@@ -172,17 +178,18 @@ int main() {
         },
         1.0f, 0.0f, "sgemm_tiled_2d_vectorized_1");
 
-    // Test tiled 2D kernel with vectorization
-    static_assert(BN % TN == 0 && BM % TM == 0, "BN % TN != 0 || BM % TM != 0");
-    static_assert(BN / TN == BK, "BN / TN != BK");
-    static_assert(BM / TM == BK, "BM / TM != BK");
-    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
-    static_assert(BK >= VEC_SIZE && BK % VEC_SIZE == 0,
-                  "BK < VEC_SIZE || BK % VEC_SIZE != 0");
-    static_assert((TN >= VEC_SIZE) && (TN % VEC_SIZE) == 0,
-                  "TN < VEC_SIZE || TN % VEC_SIZE != 0");
+    // 05: Test tiled 2D kernel with vectorization
+    static_assert(BN_05 % TN_05 == 0 && BM_05 % TM_05 == 0,
+                  "BN % TN != 0 || BM % TM != 0");
+    static_assert(BN_05 / TN_05 == BK_05, "BN / TN != BK");
+    static_assert(BM_05 / TM_05 == BK_05, "BM / TM != BK");
+    static_assert(BK_05 >= TM_05 && BK_05 >= TN_05, "BK < TM || BK < TN");
+    static_assert(BK_05 >= VEC_SIZE_05 && BK_05 % VEC_SIZE_05 == 0,
+                  "BK < VEC_SIZE_05 || BK % VEC_SIZE_05 != 0");
+    static_assert((TN_05 >= VEC_SIZE_05) && (TN_05 % VEC_SIZE_05) == 0,
+                  "TN < VEC_SIZE_05 || TN % VEC_SIZE_05 != 0");
     run_sgemm_test(
-        M, N, K, gridTiled2Dvec, blockTiled2Dvec,
+        M_0, N_0, K_0, gridTiled2Dvec, blockTiled2Dvec,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_tiled_2d_vectorized_2<<<grid, block>>>(M, N, K, alpha, A, B,
@@ -190,19 +197,19 @@ int main() {
         },
         1.0f, 0.0f, "sgemm_tiled_2d_vectorized_2");
 
-    // Test warptiling
-    static_assert(BN % WN == 0 && BM % WM == 0, "BN % WN != 0 || BM % WM != 0");
-    static_assert(BN / TN == BK, "BN / TN != BK");
-    static_assert(BM / TM == BK, "BM / TM != BK");
-    static_assert(BK >= TM && BK >= TN, "BK < TM || BK < TN");
-    static_assert(WN >= TN && WM >= TM,
-                  "WN < TN || WM < TM");
-    static_assert(WN % TN == 0 && WM % TM == 0,
+    // 06: Test warptiling
+    static_assert(BN_06 % WN_06 == 0 && BM_06 % WM_06 == 0,
+                  "BN % WN != 0 || BM % WM != 0");
+    static_assert(BN_06 / TN_06 == BK_06, "BN / TN != BK");
+    static_assert(BM_06 / TM_06 == BK_06, "BM / TM != BK");
+    static_assert(BK_06 >= TM_06 && BK_06 >= TN_06, "BK < TM || BK < TN");
+    static_assert(WN_06 >= TN_06 && WM_06 >= TM_06, "WN < TN || WM < TM");
+    static_assert(WN_06 % TN_06 == 0 && WM_06 % TM_06 == 0,
                   "WN % TN != 0 || WM % TM != 0");
-    dim3 gridWarptiling(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
-    dim3 blockWarptiling(BN / TN, BM / TM, 1);
+    dim3 gridWarptiling(CEIL_DIV(N_1, BN_06), CEIL_DIV(M_1, BM_06), 1);
+    dim3 blockWarptiling(BN_06 / TN_06, BM_06 / TM_06, 1);
     run_sgemm_test(
-        M, N, K, gridWarptiling, blockWarptiling,
+        M_1, N_1, K_1, gridWarptiling, blockWarptiling,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
            float beta, float *C, dim3 grid, dim3 block /*ExtraParams*/) {
             sgemm_warptiling<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
