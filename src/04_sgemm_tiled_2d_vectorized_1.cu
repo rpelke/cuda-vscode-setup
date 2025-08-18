@@ -91,9 +91,7 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
                     const float *b_data =
                         reinterpret_cast<const float *>(&b_vec);
 
-                    // clang-format off
-                    #pragma unroll
-                    // clang-format on
+#pragma unroll
                     for (int i = 0; i < VEC_SIZE_04; ++i) {
                         tmp[tm][tn] += a_data[i] * b_data[i];
                     }

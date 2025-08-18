@@ -10,8 +10,8 @@ This repository is designed to simplify your introduction to CUDA kernel develop
     - C/C++ & C/C++ Extension Pack
     - CMake & CMake Tools
     - (Kernel profiling) Nsight Visual Studio Code Edition
-    - (For style formatting only) Clang-format
     - (If Python is used) Python & Python Extension Pack
+    - Clang-format (by X. Hellauer) for Formatting
 
 1. Adapt the pathes in the [settings.json](.vscode/settings.json) file.
 

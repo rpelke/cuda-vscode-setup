@@ -9,5 +9,6 @@
         "CMAKE_BUILD_TYPE": "${variant:buildType}",
         "CMAKE_ENABLE_TRACING": "ON" // Enable/disable tracing information (for ncu)
     },
-    "clang-format.executable": "/usr/bin/clang-format"
+    // Clang-format options
+    "clang-format.executable": "/usr/bin/clang-format",
 }
