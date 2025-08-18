@@ -10,60 +10,63 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
     unsigned int tx = threadIdx.x;
     unsigned int ty = threadIdx.y;
 
-    const int C_tile_offs = N * BM * by + BN * bx;
-    
+    const int C_tile_offs = N * BM_04 * by + BN_04 * bx;
+
     // Offset to row=0 and col=bx in B
-    int B_tile_offs = BN * bx;
+    int B_tile_offs = BN_04 * bx;
     // Offset to row=by and col=0 in A
-    int A_tile_offs = BM * K * by;
+    int A_tile_offs = BM_04 * K * by;
 
     // C += beta * C
     // This  could also be done later but I use C to store intermediate results
-    for (int tm = 0; tm < TM; ++tm) {
-        for (int tn = 0; tn < TN; ++tn) {
-            if ((bx * BN + tx * TN + tn < N) &&
-                (by * BM + ty * TM + tm < M)) { // bounds check
-                C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] *= beta;
+    for (int tm = 0; tm < TM_04; ++tm) {
+        for (int tn = 0; tn < TN_04; ++tn) {
+            if ((bx * BN_04 + tx * TN_04 + tn < N) &&
+                (by * BM_04 + ty * TM_04 + tm < M)) { // bounds check
+                C[C_tile_offs + N * (TM_04 * ty + tm) + TN_04 * tx + tn] *=
+                    beta;
             }
         }
     }
 
     // Shared-memory buffers for A and B tiles (we transpose B)
-    __shared__ __align__(sizeof(float) * VEC_SIZE) float As[BM * BK];
-    __shared__ __align__(sizeof(float) * VEC_SIZE) float Bs_t[BK * BN];
+    __shared__ __align__(sizeof(float) * VEC_SIZE_04) float As[BM_04 * BK_04];
+    __shared__ __align__(sizeof(float) * VEC_SIZE_04) float Bs_t[BK_04 * BN_04];
 
-    // k = {0, BK, 2*BK, ...}
-    for (int k = 0; k < K; k += BK) {
-        // Each thread loads TM values into As
-        for (int tm = 0; tm < TM; ++tm) {
-            if ((k + tx < K) && (by * BM + ty * TM + tm < M)) { // bounds check
-                As[BK * (TM * ty + tm) + tx] =
-                    A[A_tile_offs + K * (TM * ty + tm) + tx];
+    // k = {0, BK_04, 2*BK_04, ...}
+    for (int k = 0; k < K; k += BK_04) {
+        // Each thread loads TM_04 values into As
+        for (int tm = 0; tm < TM_04; ++tm) {
+            if ((k + tx < K) &&
+                (by * BM_04 + ty * TM_04 + tm < M)) { // bounds check
+                As[BK_04 * (TM_04 * ty + tm) + tx] =
+                    A[A_tile_offs + K * (TM_04 * ty + tm) + tx];
             } else {
-                As[BK * (TM * ty + tm) + tx] = 0.0f; // out of bounds
+                As[BK_04 * (TM_04 * ty + tm) + tx] = 0.0f; // out of bounds
             }
         }
-        A_tile_offs += BK;
+        A_tile_offs += BK_04;
 
-        // Each thread loads TN values into Bs_t
-        for (int tn = 0; tn < TN; ++tn) {
-            if ((bx * BN + tx * TN + tn < N) && (k + ty < K)) { // bounds check
+        // Each thread loads TN_04 values into Bs_t
+        for (int tn = 0; tn < TN_04; ++tn) {
+            if ((bx * BN_04 + tx * TN_04 + tn < N) &&
+                (k + ty < K)) { // bounds check
                 // The "untransposed" access would have been:
-                // Bs[BN * ty + TN * tx + tn]
-                Bs_t[BK * (TN * tx + tn) + ty] =
-                    B[B_tile_offs + N * ty + TN * tx + tn];
+                // Bs[BN_04 * ty + TN_04 * tx + tn]
+                Bs_t[BK_04 * (TN_04 * tx + tn) + ty] =
+                    B[B_tile_offs + N * ty + TN_04 * tx + tn];
             } else {
-                Bs_t[BK * (TN * tx + tn) + ty] = 0.0f; // out of bounds
+                Bs_t[BK_04 * (TN_04 * tx + tn) + ty] = 0.0f; // out of bounds
             }
         }
-        B_tile_offs += N * BK;
+        B_tile_offs += N * BK_04;
         __syncthreads();
 
-        DTypeVector *Bs_t_vec = reinterpret_cast<DTypeVector *>(Bs_t);
-        DTypeVector *As_vec = reinterpret_cast<DTypeVector *>(As);
+        DTypeVector_04 *Bs_t_vec = reinterpret_cast<DTypeVector_04 *>(Bs_t);
+        DTypeVector_04 *As_vec = reinterpret_cast<DTypeVector_04 *>(As);
 
-        // Each thread computes a TMxTN block
-        float tmp[TM][TN] = {0.0f};
+        // Each thread computes a TM_04xTN_04 block
+        float tmp[TM_04][TN_04] = {0.0f};
 
         /* This loop read elements from As_vec and Bs_t_vec with vector load
         operations. Vector operations, e.g., ld.shared.v4.f32, can be check
@@ -73,14 +76,15 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
         The access to Bs_t_vec causes bank conflicts. This can be seen with:
         ncu --metrics l1tex__data_bank_conflicts_pipe_lsu_mem_shared
         --kernel-name sgemm_tiled_2d <binary_file> */
-        for (int tm = 0; tm < TM; ++tm) {
-            for (int tn = 0; tn < TN; ++tn) {
-                for (int bk = 0; bk < BK; bk += VEC_SIZE) {
-                    // Load VEC_SIZE elements from As and Bs into resgisters
-                    DTypeVector b_vec =
-                        Bs_t_vec[(BK * (TN * tx + tn) + bk) / VEC_SIZE];
-                    DTypeVector a_vec =
-                        As_vec[(BK * (TM * ty + tm) + bk) / VEC_SIZE];
+        for (int tm = 0; tm < TM_04; ++tm) {
+            for (int tn = 0; tn < TN_04; ++tn) {
+                for (int bk = 0; bk < BK_04; bk += VEC_SIZE_04) {
+                    // Load VEC_SIZE_04 elements from As and Bs into resgisters
+                    DTypeVector_04 b_vec =
+                        Bs_t_vec[(BK_04 * (TN_04 * tx + tn) + bk) /
+                                 VEC_SIZE_04];
+                    DTypeVector_04 a_vec =
+                        As_vec[(BK_04 * (TM_04 * ty + tm) + bk) / VEC_SIZE_04];
 
                     const float *a_data =
                         reinterpret_cast<const float *>(&a_vec);
@@ -90,7 +94,7 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
                     // clang-format off
                     #pragma unroll
                     // clang-format on
-                    for (int i = 0; i < VEC_SIZE; ++i) {
+                    for (int i = 0; i < VEC_SIZE_04; ++i) {
                         tmp[tm][tn] += a_data[i] * b_data[i];
                     }
                 }
@@ -98,13 +102,14 @@ __global__ void sgemm_tiled_2d_vectorized_1(int M, int N, int K, float alpha,
         }
 
         // Each thread copies its part of the block to C
-        for (int tm = 0; tm < TM; ++tm) {
-            for (int tn = 0; tn < TN; ++tn) {
-                if ((bx * BN + tx * TN + tn < N) &&
-                    (by * BM + ty * TM + tm < M)) { // bounds check
-                    C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn] =
+        for (int tm = 0; tm < TM_04; ++tm) {
+            for (int tn = 0; tn < TN_04; ++tn) {
+                if ((bx * BN_04 + tx * TN_04 + tn < N) &&
+                    (by * BM_04 + ty * TM_04 + tm < M)) { // bounds check
+                    C[C_tile_offs + N * (TM_04 * ty + tm) + TN_04 * tx + tn] =
                         alpha * tmp[tm][tn] +
-                        C[C_tile_offs + N * (TM * ty + tm) + TN * tx + tn];
+                        C[C_tile_offs + N * (TM_04 * ty + tm) + TN_04 * tx +
+                          tn];
                 }
             }
         }

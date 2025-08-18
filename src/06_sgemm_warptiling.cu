@@ -3,95 +3,99 @@
 #include <nvtx3/nvToolsExt.h>
 
 // Tiled 2D SGEMM kernel with warptiling
-// Each thread processes TMxTN block
+// Each thread processes TM_06xTN_06 block
 __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
                                  const float *A, const float *B, float beta,
                                  float *C) {
     unsigned int bx = blockIdx.x;
     unsigned int by = blockIdx.y;
 
-    unsigned int wx = threadIdx.x / (WN / TN);
-    unsigned int wy = threadIdx.y / (WM / TM);
+    unsigned int wx = threadIdx.x / (WN_06 / TN_06);
+    unsigned int wy = threadIdx.y / (WM_06 / TM_06);
 
-    unsigned int tx = (threadIdx.x % (WN / TN));
-    unsigned int ty = (threadIdx.y % (WM / TM));
+    unsigned int tx = (threadIdx.x % (WN_06 / TN_06));
+    unsigned int ty = (threadIdx.y % (WM_06 / TM_06));
 
     // Pointers to the block's top-left (position in C)
-    const int C_tile_offs = N * BM * by + BN * bx;
+    const int C_tile_offs = N * BM_06 * by + BN_06 * bx;
     // Offset to row=0 and col=bx in B
-    int B_tile_offs = BN * bx;
+    int B_tile_offs = BN_06 * bx;
     // Offset to row=by and col=0 in A
-    int A_tile_offs = BM * K * by;
+    int A_tile_offs = BM_06 * K * by;
 
     // C += beta * C
     // This could also be done later but I use C to store intermediate results
-    for (int tm = 0; tm < TM; ++tm) {
-        for (int tn = 0; tn < TN; ++tn) {
-            C[C_tile_offs + N * (WM * wy + TM * ty + tm) + WN * wx + TN * tx +
-              tn] *= beta;
+    for (int tm = 0; tm < TM_06; ++tm) {
+        for (int tn = 0; tn < TN_06; ++tn) {
+            C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) + WN_06 * wx +
+              TN_06 * tx + tn] *= beta;
         }
     }
 
     // Shared-memory buffers for A and B tiles
-    __shared__ float As[BM * BK];
-    __shared__ float Bs[BK * BN];
+    __shared__ float As[BM_06 * BK_06];
+    __shared__ float Bs[BK_06 * BN_06];
 
-    // k = {0, BK, 2*BK, ...}
-    for (int k = 0; k < K; k += BK) {
-        // Each thread loads TM values into As
-        for (int tm = 0; tm < TM; ++tm) {
-            As[BK * (WM * wy + TM * ty + tm) + (WN / TN) * wx + tx] =
-                A[A_tile_offs + K * (WM * wy + TM * ty + tm) + (WN / TN) * wx +
-                  tx];
+    // k = {0, BK_06, 2*BK_06, ...}
+    for (int k = 0; k < K; k += BK_06) {
+        // Each thread loads TM_06 values into As
+        for (int tm = 0; tm < TM_06; ++tm) {
+            As[BK_06 * (WM_06 * wy + TM_06 * ty + tm) + (WN_06 / TN_06) * wx +
+               tx] = A[A_tile_offs + K * (WM_06 * wy + TM_06 * ty + tm) +
+                       (WN_06 / TN_06) * wx + tx];
         }
-        A_tile_offs += BK;
+        A_tile_offs += BK_06;
 
-        // Each thread loads TN values into Bs
-        for (int tn = 0; tn < TN; ++tn) {
-            Bs[BN * ((WM / TM) * wy + ty) + WN * wx + TN * tx + tn] =
-                B[B_tile_offs + N * ((WM / TM) * wy + ty) + WN * wx + TN * tx +
-                  tn];
+        // Each thread loads TN_06 values into Bs
+        for (int tn = 0; tn < TN_06; ++tn) {
+            Bs[BN_06 * ((WM_06 / TM_06) * wy + ty) + WN_06 * wx + TN_06 * tx +
+               tn] = B[B_tile_offs + N * ((WM_06 / TM_06) * wy + ty) +
+                       WN_06 * wx + TN_06 * tx + tn];
         }
-        B_tile_offs += N * BK;
+        B_tile_offs += N * BK_06;
         __syncthreads();
 
-        // Temporary results of the TMxTN mini-GEMM within a thread
-        float tmp[TM][TN] = {0.0f};
+        // Temporary results of the TM_06xTN_06 mini-GEMM within a thread
+        float tmp[TM_06][TN_06] = {0.0f};
 
         // *******************************************************************
         // ***** This part will be discussed in "docs/01_register_blocking.md"
-        for (int tm = 0; tm < TM; ++tm) {
-            for (int tn = 0; tn < TN; ++tn) {
-                for (int bk = 0; bk < BK; ++bk) {
-                    tmp[tm][tn] += As[BK * (WM * wy + TM * ty + tm) + bk] *
-                                   Bs[BN * bk + WN * wx + TN * tx + tn];
+        for (int tm = 0; tm < TM_06; ++tm) {
+            for (int tn = 0; tn < TN_06; ++tn) {
+                for (int bk = 0; bk < BK_06; ++bk) {
+                    tmp[tm][tn] +=
+                        As[BK_06 * (WM_06 * wy + TM_06 * ty + tm) + bk] *
+                        Bs[BN_06 * bk + WN_06 * wx + TN_06 * tx + tn];
                 }
             }
         }
         // *******************************************************************
 
         // Each thread copies its part of the block to C
-        for (int tm = 0; tm < TM; ++tm) {
-            for (int tn = 0; tn < TN; ++tn) {
-                C[C_tile_offs + N * (WM * wy + TM * ty + tm) + WN * wx +
-                  TN * tx + tn] = alpha * tmp[tm][tn] +
-                                  C[C_tile_offs + N * (WM * wy + TM * ty + tm) +
-                                    WN * wx + TN * tx + tn];
+        for (int tm = 0; tm < TM_06; ++tm) {
+            for (int tn = 0; tn < TN_06; ++tn) {
+                C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
+                  WN_06 * wx + TN_06 * tx + tn] =
+                    alpha * tmp[tm][tn] +
+                    C[C_tile_offs + N * (WM_06 * wy + TM_06 * ty + tm) +
+                      WN_06 * wx + TN_06 * tx + tn];
             }
         }
         __syncthreads();
     }
 }
 
-/* 1-D Blockdimension with (BN / TN) * (BM / TM) threads.
+// clang-format off
+/* 1-D Blockdimension with (BN_06 / TN_06) * (BM_06 / TM_06) threads.
 Launch:
-    dim3 blockWarptiling((BN / TN) * (BM / TM), 1, 1);
+    dim3 blockWarptiling((BN_06 / TN_06) * (BM_06 / TM_06), 1, 1);
 
 Kernel:
-    unsigned int wx = threadIdx.x / ((BM / TM) * (WN / TN));
-    unsigned int w_block_num = threadIdx.x / ((WN / TN) * (WM / TM));
-    unsigned int wy = w_block_num % (BM / WM);
-    unsigned int tx = threadIdx.x % (WN / TN);
-    unsigned int t_row_id = threadIdx.x / (WN / TN);
-    unsigned int ty = t_row_id % (WM / TM);
+    unsigned int wx = threadIdx.x / ((BM_06 / TM_06) * (WN_06 / TN_06));
+    unsigned int w_block_num = threadIdx.x / ((WN_06 / TN_06) * (WM_06 / TM_06));
+    unsigned int wy = w_block_num % (BM_06 / WM_06);
+    unsigned int tx = threadIdx.x % (WN_06 / TN_06);
+    unsigned int t_row_id = threadIdx.x / (WN_06 / TN_06);
+    unsigned int ty = t_row_id % (WM_06 / TM_06);
 */
+// clang-format on
