@@ -134,3 +134,13 @@ ____
     ```bash
     ${CUDA_PATH}/bin/ncu-ui sgemm.ncu-rep
     ```
+
+1. Profile additional metrics:
+    ```bash
+    # Show all metrics
+    ${CUDA_PATH}/bin/ncu --query-metrics
+
+    # Profile more metrics (m1, m2, and m3)
+    ${CUDA_PATH}/bin/ncu [...] --metrics m1,m2,m3 [...]
+    ```
+    To print the results, use `--page raw `.
