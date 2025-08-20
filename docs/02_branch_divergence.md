@@ -129,3 +129,57 @@ The resulting predicate bits are stored in `P6`.
 
 In line 2, the floating-point value `42.0f` (`0x42280000` in IEEE 754 standard) is moved into register `R55` but only if `!P6`, i.e., only for threads with an index divisible by two.
 The last instruction in line 3, is a predicated store instruction to the global memory (`C[threadIdx.x]`).
+
+-> The prefixed predicate conditions (here: `@!P6`) and the absense of branch instructions (e.g., `BRA`, `BSYNC`, `BSSY`) make it easy to recognize predication in SASS.
+
+
+### Recognizing Branch Divergence in the SASS Code
+To provoke branch divergence, we use an `if/else` example that is a little more complex.
+We want to show that branches exist, so that the branch efficiency `sm__sass_average_branch_targets_threads_uniform.pct` drops below $100\%$.
+
+**But be careful**: If the example is too simple, only predication is used. This means, no branch instructions are inserted. As a result, the branch efficiency is $0\%$ because there are no branches (see formula).
+
+```C++
+if (threadIdx.x % 2 == 0) {
+    for(int i=0; i<100; i++) { C[threadIdx.x] += i; }
+}
+else {
+    for(int i=0; i<100; i++) { C[threadIdx.x] -= i; }
+}
+```
+
+The C++ code results in the following simplified SASS Code:
+
+```x86asm <!-- No SASS highlighting. Use x86 assembly colors instead. -->
+1     LDG.E.SYS R4, [R2]
+2     LOP3.LUT R0, R0, 0x1, RZ, 0xc0, !PT
+3     BMOV.32.CLEAR RZ, B0
+4     BSSY B0, 0x719ccba55f30
+5     ISETP.NE.U32.AND P0, PT, R0, 0x1, PT
+6     @P0  BRA 0x719ccba558e0 (here: 107)
+7     FADD R4, R4, -1
+      ...
+105   FADD R5, R4, -99
+106   BRA 0x719ccba55f20 (here: 207)
+107   FADD R4, RZ, R4
+108   FADD R4, R4, 1
+      ...
+206   FADD R5, R4, 99
+207   BSYNC B0
+208   STG.E.SYS [R2], R5
+```
+
+In line `1`, the value of `C[threadIdx.x] ` is loaded into `R4`.
+Line `2` and line `5` program the predicate register `P0` according to the condition `threadIdx.x % 2 == 0`.
+Line `3` clears the reconvergence stack. `B0` (... `B7`) are reconvergence registers.
+They hold the address of the reconvergence point.
+Line `4` sets a new reconvergence point to address `207`.
+All threads are reunited at this address.
+
+Line `6` lets all threads that fulfill `threadIdx.x % 2 == 0` jump to `107`.
+These threads execute the instructions inside the `if` body.
+If the condition is not fulfilled, the odd threads execute the instructions inside the `else` body starting from line `7`. In line `106` they jump to line `207`.
+Finally, the value is written back to `C[threadIdx.x]` in line `208`.
+Profiling shows that the number of branch instructions ` sm__sass_branch_targets` is $>0$ and the branch efficiency ` sm__sass_average_branch_targets_threads_uniform` is $<100\%$.
+
+-> Branch divergence can easiliy be recognized by the typical branch instructions `BRA`, `BSYNC`, and `BSSY`.
