@@ -107,8 +107,9 @@ int main() {
     int K_0 = 1025;
 
     // 00: Test simple kernel
-    dim3 blockSimple(BLOCKSIZE, BLOCKSIZE, 1);
-    dim3 gridSimple(CEIL_DIV(M_0, BLOCKSIZE), CEIL_DIV(N_0, BLOCKSIZE), 1);
+    dim3 blockSimple(BLOCKSIZE_00, BLOCKSIZE_00, 1);
+    dim3 gridSimple(CEIL_DIV(M_0, BLOCKSIZE_00), CEIL_DIV(N_0, BLOCKSIZE_00),
+                    1);
     run_sgemm_test(
         M_0, N_0, K_0, gridSimple, blockSimple,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
@@ -118,8 +119,9 @@ int main() {
         1.0f, 0.0f, "sgemm_simple");
 
     // 01: Test coalesced kernel
-    dim3 blockCoalesced(BLOCKSIZE * BLOCKSIZE);
-    dim3 gridCoalesced(CEIL_DIV(N_0, BLOCKSIZE), CEIL_DIV(M_0, BLOCKSIZE), 1);
+    dim3 blockCoalesced(BLOCKSIZE_01 * BLOCKSIZE_01);
+    dim3 gridCoalesced(CEIL_DIV(N_0, BLOCKSIZE_01), CEIL_DIV(M_0, BLOCKSIZE_01),
+                       1);
     run_sgemm_test(
         M_0, N_0, K_0, gridCoalesced, blockCoalesced,
         [](int M, int N, int K, float alpha, const float *A, const float *B,
@@ -129,8 +131,8 @@ int main() {
         1.0f, 0.0f, "sgemm_coalesced");
 
     // 02: Test tiled kernel
-    dim3 blockTiled(BLOCKSIZE, BLOCKSIZE, 1);
-    dim3 gridTiled(CEIL_DIV(N_0, BLOCKSIZE), CEIL_DIV(M_0, BLOCKSIZE), 1);
+    dim3 blockTiled(BLOCKSIZE_02, BLOCKSIZE_02, 1);
+    dim3 gridTiled(CEIL_DIV(N_0, BLOCKSIZE_02), CEIL_DIV(M_0, BLOCKSIZE_02), 1);
     run_sgemm_test(
         M_0, N_0, K_0, gridTiled, blockTiled,
         [](int M, int N, int K, float alpha, const float *A, const float *B,

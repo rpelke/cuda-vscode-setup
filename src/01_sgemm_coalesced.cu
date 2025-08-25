@@ -4,8 +4,10 @@
 __global__ void sgemm_coalesced(int M, int N, int K, float alpha,
                                 const float *A, const float *B, float beta,
                                 float *C) {
-    const unsigned int x = (threadIdx.x % BLOCKSIZE) + blockIdx.x * BLOCKSIZE;
-    const unsigned int y = (threadIdx.x / BLOCKSIZE) + blockIdx.y * BLOCKSIZE;
+    const unsigned int x =
+        (threadIdx.x % BLOCKSIZE_01) + blockIdx.x * BLOCKSIZE_01;
+    const unsigned int y =
+        (threadIdx.x / BLOCKSIZE_01) + blockIdx.y * BLOCKSIZE_01;
 
     if (x < N && y < M) {
         float tmp = 0.0;
