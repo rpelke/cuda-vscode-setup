@@ -10,6 +10,8 @@ set(CMAKE_CUDA_FLAGS_DEBUG
 
 option(CMAKE_ENABLE_TRACING "Enable CUDA lineinfo for profiling/tracing" OFF)
 
+find_library(CUBLAS_LIBRARY cublas ${CUDA_PATH}/lib64)
+
 add_executable(
     sgemm
     main.cu
@@ -35,6 +37,9 @@ target_include_directories(
     sgemm
     PRIVATE inc
     PRIVATE ${CUDA_PATH}/include
+)
+target_link_libraries(sgemm
+  PRIVATE ${CUBLAS_LIBRARY} cuda cudart
 )
 install(
     TARGETS sgemm

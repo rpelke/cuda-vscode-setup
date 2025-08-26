@@ -2,6 +2,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
+#include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>
@@ -18,7 +19,8 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
               << ", K=" << K << " ===\n";
 
     // Allocate and initialize host data
-    std::vector<float> h_A(M * K), h_B(K * N), h_C(M * N), h_C_ref(M * N);
+    std::vector<float> h_A(M * K), h_B(K * N), h_C(M * N), h_C_ref(M * N),
+        h_C_cublas(M * N);
     for (int i = 0; i < M * K; ++i)
         h_A[i] = static_cast<float>(rand()) / RAND_MAX;
     for (int i = 0; i < K * N; ++i)
@@ -26,6 +28,7 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
     for (int i = 0; i < M * N; ++i) {
         h_C[i] = static_cast<float>(rand()) / RAND_MAX;
         h_C_ref[i] = h_C[i];
+        h_C_cublas[i] = h_C[i];
     }
 
     // Allocate device memory
@@ -90,6 +93,44 @@ void run_sgemm_test(int M, int N, int K, dim3 gridDim, dim3 blockDim,
         std::cout << " TEST PASSED\n\n";
     } else {
         std::cout << " TEST FAILED: " << mismatches
+                  << " mismatches, max error = " << max_err << "\n\n";
+    }
+
+    // Cublas reference
+    cudaFree(d_C);
+    cudaMalloc(&d_C, M * N * sizeof(float));
+    cudaMemcpy(d_C, h_C_cublas.data(), M * N * sizeof(float),
+               cudaMemcpyHostToDevice);
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
+    cublasHandle_t handle;
+    cublasCreate(&handle);
+    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, N, d_A,
+                K, &beta, d_C, N);
+    cublasDestroy(handle);
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaMemcpy(h_C_cublas.data(), d_C, M * N * sizeof(float),
+               cudaMemcpyDeviceToHost);
+    float cublas_ms = 0.f;
+    cudaEventElapsedTime(&cublas_ms, start, stop);
+    double cublas_gflops = 2.0 * M * N * K / (cublas_ms * 1e6);
+    std::cout << "CUBLAS: " << cublas_ms << " ms, " << cublas_gflops
+              << " GFLOPS\n";
+    mismatches = 0;
+    max_err = 0.0f;
+    for (int i = 0; i < M * N; ++i) {
+        float e = std::abs(h_C_cublas[i] - h_C[i]);
+        if (e > 1e-3f) {
+            ++mismatches;
+            max_err = std::max(max_err, e);
+        }
+    }
+    if (mismatches == 0) {
+        std::cout << " CUBLAS: TEST PASSED\n\n";
+    } else {
+        std::cout << " CUBLAS: TEST FAILED: " << mismatches
                   << " mismatches, max error = " << max_err << "\n\n";
     }
 
