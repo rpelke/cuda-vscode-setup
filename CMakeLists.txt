@@ -15,6 +15,7 @@ find_library(CUBLAS_LIBRARY cublas ${CUDA_PATH}/lib64)
 add_executable(
     sgemm
     main.cu
+    src/benchmark.cu
     src/sgemm_cpu.cpp
     src/00_sgemm_simple.cu
     src/01_sgemm_coalesced.cu

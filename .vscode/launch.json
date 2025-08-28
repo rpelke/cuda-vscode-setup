@@ -6,15 +6,34 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/release/bin/sgemm",
-            "cwd": "${workspaceFolder}"
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/usr/local/cuda-12.4/lib64"
+                }
+            ]
         },
         {
-            "name": "Debug kernel",
+            "name": "Debug kernel (GPU code)",
             "type": "cuda-gdb",
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}",
             "miDebuggerPath": "/usr/local/cuda-12.4/bin/cuda-gdb", // Change this path
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "/opt/python3.6/lib" // Change this path
+                }
+            ]
+        },
+        {
+            "name": "Debug kernel (CPU code)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/debug/bin/sgemm",
+            "cwd": "${workspaceFolder}",
         }
     ]
 }

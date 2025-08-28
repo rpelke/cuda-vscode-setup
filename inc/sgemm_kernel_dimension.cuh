@@ -8,7 +8,7 @@ constexpr int BLOCKSIZE_00 = 32;
 constexpr int BLOCKSIZE_01 = 32;
 
 // Kernel 02
-constexpr int BLOCKSIZE_02 = 64;
+constexpr int BLOCKSIZE_02 = 32;
 
 // Kernel 03
 constexpr int BM_03 = 64;
