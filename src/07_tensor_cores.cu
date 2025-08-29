@@ -38,10 +38,22 @@ __global__ void sgemm_tensorcores(int M, int N, int K, float alpha,
         for (int tm = 0; tm < TM_07; ++tm) {
             for (int tn = 0; tn < TN_07; ++tn) {
                 int shmem_offs = BLOCKSIZE_07 * TM_07 * ty + TN_07 * tx;
-                As[shmem_offs + BLOCKSIZE_07 * tm + tn] = __float2half(
-                    A[A_tile_offs + K * (TM_07 * ty + tm) + TN_07 * tx + tn]);
-                Bs[shmem_offs + BLOCKSIZE_07 * tm + tn] = __float2half(
-                    B[B_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn]);
+                if ((k + TN_07 * tx + tn < K) &&
+                    (by * BLOCKSIZE_07 + ty * TM_07 + tm < M)) {
+                    As[shmem_offs + BLOCKSIZE_07 * tm + tn] =
+                        __float2half(A[A_tile_offs + K * (TM_07 * ty + tm) +
+                                       TN_07 * tx + tn]);
+                } else {
+                    As[shmem_offs + BLOCKSIZE_07 * tm + tn] = 0.0;
+                }
+                if ((k + TM_07 * ty + tm < K) &&
+                    (bx * BLOCKSIZE_07 + tx * TN_07 + tn < N)) {
+                    Bs[shmem_offs + BLOCKSIZE_07 * tm + tn] =
+                        __float2half(B[B_tile_offs + N * (TM_07 * ty + tm) +
+                                       TN_07 * tx + tn]);
+                } else {
+                    Bs[shmem_offs + BLOCKSIZE_07 * tm + tn] = 0.0;
+                }
             }
         }
         A_tile_offs += BLOCKSIZE_07;
@@ -64,10 +76,14 @@ __global__ void sgemm_tensorcores(int M, int N, int K, float alpha,
 
     for (int tm = 0; tm < TM_07; ++tm) {
         for (int tn = 0; tn < TN_07; ++tn) {
-            int shmem_offs = BLOCKSIZE_07 * TM_07 * ty + TN_07 * tx;
-            C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] =
-                Cs[shmem_offs + BLOCKSIZE_07 * tm + tn] * alpha +
-                C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] * beta;
+            if ((bx * BLOCKSIZE_07 + tx * TN_07 + tn < N) &&
+                (by * BLOCKSIZE_07 + ty * TM_07 + tm < M)) {
+                int shmem_offs = BLOCKSIZE_07 * TM_07 * ty + TN_07 * tx;
+                C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] =
+                    Cs[shmem_offs + BLOCKSIZE_07 * tm + tn] * alpha +
+                    C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] *
+                        beta;
+            }
         }
     }
 }

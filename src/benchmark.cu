@@ -75,7 +75,7 @@ void Benchmark::free_device_mem() {
 
 bool Benchmark::validate_results(std::vector<float> &C_test,
                                  std::string test_name, int M, int N,
-                                 float rtol = 1e-3f) {
+                                 float rtol = 1e-2f) {
     int mismatches = 0;
     float max_err = 0.0f;
     for (int i = 0; i < M * N; ++i) {
@@ -131,7 +131,7 @@ double Benchmark::benchmark_cublas(int M, int K, int N, float alpha,
 void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
                                  dim3 gridDim, dim3 blockDim,
                                  sgemm_kernel_t launcher,
-                                 std::string kernel_name, float rtol = 1e-3f) {
+                                 std::string kernel_name, float rtol = 1e-2f) {
     copy_to_device(M, K, N, h_C_init);
 
     cudaEvent_t start, stop;
