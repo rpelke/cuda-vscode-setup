@@ -22,16 +22,15 @@ __global__ void sgemm_tensorcores(int M, int N, int K, float alpha,
     // Offset to row=by and col=0 in A
     int A_tile_offs = BLOCKSIZE_07 * K * by;
 
-    for (int tm = 0; tm < TM_07; ++tm) {
-        for (int tn = 0; tn < TN_07; ++tn) {
-            C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] *= beta;
-        }
-    }
+    // Shared-memory buffer for C
+    __shared__ float Cs[BLOCKSIZE_07 * BLOCKSIZE_07];
+
+    wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
+    wmma::fill_fragment(c_frag, 0.0f);
 
     // Shared-memory buffers for A and B tiles
     __shared__ half As[BLOCKSIZE_07 * BLOCKSIZE_07];
     __shared__ half Bs[BLOCKSIZE_07 * BLOCKSIZE_07];
-    __shared__ float Cs[BLOCKSIZE_07 * BLOCKSIZE_07];
 
     // k = {0, BLOCKSIZE_07, 2*BLOCKSIZE_07, ...}
     for (int k = 0; k < K; k += BLOCKSIZE_07) {
@@ -53,23 +52,22 @@ __global__ void sgemm_tensorcores(int M, int N, int K, float alpha,
             a_frag;
         wmma::fragment<wmma::matrix_b, 16, 16, 16, half, wmma::row_major>
             b_frag;
-        wmma::fragment<wmma::accumulator, 16, 16, 16, float> c_frag;
-        wmma::fill_fragment(c_frag, 0.0f);
+
         wmma::load_matrix_sync(a_frag, As, 16);
         wmma::load_matrix_sync(b_frag, Bs, 16);
+
         wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
         wmma::store_matrix_sync(Cs, c_frag, 16, wmma::mem_row_major);
 
         __syncthreads();
+    }
 
-        for (int tm = 0; tm < TM_07; ++tm) {
-            for (int tn = 0; tn < TN_07; ++tn) {
-                int shmem_offs = BLOCKSIZE_07 * TM_07 * ty + TN_07 * tx;
-                C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] =
-                    alpha * Cs[shmem_offs + BLOCKSIZE_07 * tm + tn] +
-                    C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn];
-            }
+    for (int tm = 0; tm < TM_07; ++tm) {
+        for (int tn = 0; tn < TN_07; ++tn) {
+            int shmem_offs = BLOCKSIZE_07 * TM_07 * ty + TN_07 * tx;
+            C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] =
+                Cs[shmem_offs + BLOCKSIZE_07 * tm + tn] * alpha +
+                C[C_tile_offs + N * (TM_07 * ty + tm) + TN_07 * tx + tn] * beta;
         }
-        __syncthreads();
     }
 }
