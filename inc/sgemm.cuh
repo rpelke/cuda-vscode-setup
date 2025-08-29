@@ -36,5 +36,8 @@ __global__ void sgemm_tiled_2d_vectorized_2(int M, int N, int K, float alpha,
 __global__ void sgemm_warptiling(int M, int N, int K, float alpha,
                                  const float *A, const float *B, float beta,
                                  float *C);
+__global__ void sgemm_tensorcores(int M, int N, int K, float alpha,
+                                  const float *A, const float *B, float beta,
+                                  float *C);
 
 #endif // SGEMM_KERNELS_CUH

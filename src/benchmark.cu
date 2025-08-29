@@ -74,12 +74,13 @@ void Benchmark::free_device_mem() {
 }
 
 bool Benchmark::validate_results(std::vector<float> &C_test,
-                                 std::string test_name, int M, int N) {
+                                 std::string test_name, int M, int N,
+                                 float rtol = 1e-3f) {
     int mismatches = 0;
     float max_err = 0.0f;
     for (int i = 0; i < M * N; ++i) {
         float e = std::abs(C_test[i] - h_C_cpu[i]);
-        if (e > 1e-3f) {
+        if (e > rtol) {
             ++mismatches;
             max_err = std::max(max_err, e);
         }
@@ -130,7 +131,7 @@ double Benchmark::benchmark_cublas(int M, int K, int N, float alpha,
 void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
                                  dim3 gridDim, dim3 blockDim,
                                  sgemm_kernel_t launcher,
-                                 std::string kernel_name) {
+                                 std::string kernel_name, float rtol = 1e-3f) {
     copy_to_device(M, K, N, h_C_init);
 
     cudaEvent_t start, stop;
@@ -149,7 +150,7 @@ void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
     cudaEventElapsedTime(&kernel_ms, start, stop);
     float kernel_gflops = ms_to_gflops(M, K, N, kernel_ms);
     copy_results_to_host(M, N, h_C);
-    validate_results(h_C, kernel_name, M, N);
+    validate_results(h_C, kernel_name, M, N, rtol);
     print_results(kernel_ms, kernel_gflops, kernel_name);
     free_device_mem();
 }
@@ -282,4 +283,17 @@ void Benchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
                                                     C);
         },
         "Kernel 06");
+
+    // 07: Test tensor cores
+    static_assert(TN_07 * TM_07 * 32 == BLOCKSIZE_07 * BLOCKSIZE_07);
+    dim3 gridDim_07(CEIL_DIV(N, BLOCKSIZE_07), CEIL_DIV(M, BLOCKSIZE_07), 1);
+    dim3 blockDim_07(BLOCKSIZE_07 / TN_07, BLOCKSIZE_07 / TM_07, 1);
+    benchmark_kernel(
+        M, K, N, alpha, beta, gridDim_07, blockDim_07,
+        [](int M, int K, int N, float alpha, const float *A, const float *B,
+           float beta, float *C, dim3 gridDim, dim3 blockDim) {
+            sgemm_tensorcores<<<gridDim, blockDim>>>(M, K, N, alpha, A, B, beta,
+                                                     C);
+        },
+        "Kernel 07", 1e-1f /*Higher tolerance due to fp32->fp16 conversion*/);
 }

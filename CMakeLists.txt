@@ -24,6 +24,7 @@ add_executable(
     src/04_sgemm_tiled_2d_vectorized_1.cu
     src/05_sgemm_tiled_2d_vectorized_2.cu
     src/06_sgemm_warptiling.cu
+    src/07_tensor_cores.cu
 )
 
 if(CMAKE_ENABLE_TRACING)

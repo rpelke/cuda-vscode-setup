@@ -42,4 +42,9 @@ constexpr int BK_06 = 16;
 constexpr int WN_06 = 16;
 constexpr int WM_06 = 16;
 
+// Kernel 07
+constexpr int BLOCKSIZE_07 = 16;
+constexpr int TM_07 = 8;
+constexpr int TN_07 = 1;
+
 #endif // SGEMM_KERNEL_DIMENSION_CUH
