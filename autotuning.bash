@@ -73,8 +73,12 @@ for p in "${PARAMS[@]}"; do
     cd ../../../
 
     # Execute
-    $RUN_CMD | grep -E "Kernel 06: .* ms, .* GFLOPS"
-
+    OUT="$($RUN_CMD 2>&1)"
+    if echo "$OUT" | grep -q "\[Kernel 06: TEST PASSED\]"; then
+      echo "$OUT" | grep -E "Kernel 06: .* ms, .* GFLOPS"
+    else
+        echo "Kernel 06 failed"
+    fi
 done
 
 # Restore
