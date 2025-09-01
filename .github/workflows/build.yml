@@ -32,6 +32,7 @@ jobs:
             -DCMAKE_INSTALL_PREFIX=../ \
             -DCUDA_PATH=/usr/local/cuda \
             -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+            -DCMAKE_CUDA_ARCHITECTURES=75 \
             ../../../
           make -j$(nproc)
           make install

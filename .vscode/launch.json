@@ -34,6 +34,13 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}",
+        },
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
         }
     ]
 }
