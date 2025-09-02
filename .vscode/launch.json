@@ -8,9 +8,13 @@
             "program": "${workspaceFolder}/build/release/bin/sgemm",
             "cwd": "${workspaceFolder}",
             "environment": [
+                // Set the path to the cuda libraries (e.g., libcudart.so and libcuda.so)
+                // If you use the standard cuda installation (with /usr/bin/nvcc),
+                //    you don't need this step since the libraries are in the default path /usr/lib/x86_64-linux-gnu/ (for x86_64)
+                // If you use another cuda installation, e.g., /usr/local/cuda-12.4, use the following lines:
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "/usr/local/cuda-12.4/lib64"
+                    "value": "/usr/local/cuda-13/lib64" // Change this path if needed
                 }
             ]
         },
@@ -20,11 +24,15 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}",
-            "miDebuggerPath": "/usr/local/cuda-12.4/bin/cuda-gdb", // Change this path
+            "miDebuggerPath": "/usr/local/cuda-13/bin/cuda-gdb", // Change this path
             "environment": [
+                // For some debugging features, libpython3.6m.so is required.
+                // In case you don't have it in the default library paths:
+                //   1. Install the lib: examples/cuda-gdb/install_python3.6.bash
+                //   2. Use the following lines of code:
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "/opt/python3.6/lib" // Change this path
+                    "value": "/opt/python3.6/lib" // Change this path if needed
                 }
             ]
         },

@@ -75,12 +75,12 @@ void Benchmark::free_device_mem() {
 
 bool Benchmark::validate_results(std::vector<float> &C_test,
                                  std::string test_name, int M, int N,
-                                 float rtol = 1e-2f) {
+                                 float atol = 1e-2f) {
     int mismatches = 0;
     float max_err = 0.0f;
     for (int i = 0; i < M * N; ++i) {
         float e = std::abs(C_test[i] - h_C_cpu[i]);
-        if (e > rtol) {
+        if (e > atol) {
             ++mismatches;
             max_err = std::max(max_err, e);
         }
@@ -112,13 +112,16 @@ double Benchmark::benchmark_cublas(int M, int K, int N, float alpha,
                                    float beta) {
     cublasHandle_t handle;
     cublasCreate(&handle);
+
+    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    cublasSgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B, N, d_A,
-                K, &beta, d_C, N);
+    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
+                 CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N,
+                 CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
@@ -131,7 +134,7 @@ double Benchmark::benchmark_cublas(int M, int K, int N, float alpha,
 void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
                                  dim3 gridDim, dim3 blockDim,
                                  sgemm_kernel_t launcher,
-                                 std::string kernel_name, float rtol = 1e-2f) {
+                                 std::string kernel_name, float atol = 1e-2f) {
     copy_to_device(M, K, N, h_C_init);
 
     cudaEvent_t start, stop;
@@ -150,7 +153,7 @@ void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
     cudaEventElapsedTime(&kernel_ms, start, stop);
     float kernel_gflops = ms_to_gflops(M, K, N, kernel_ms);
     copy_results_to_host(M, N, h_C);
-    validate_results(h_C, kernel_name, M, N, rtol);
+    validate_results(h_C, kernel_name, M, N, atol);
     print_results(kernel_ms, kernel_gflops, kernel_name);
     free_device_mem();
 }
@@ -169,7 +172,7 @@ void Benchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
     double cublas_ms = benchmark_cublas(M, K, N, alpha, beta);
     double cublas_gflops = ms_to_gflops(M, K, N, cublas_ms);
     copy_results_to_host(M, N, h_C_cublas);
-    validate_results(h_C_cublas, "Cublas", M, N);
+    validate_results(h_C_cublas, "Cublas", M, N, 5e-2f);
     print_results(cublas_ms, cublas_gflops, "Cublas");
     free_device_mem();
 
