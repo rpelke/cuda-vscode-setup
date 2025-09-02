@@ -1,0 +1,36 @@
+name: Pybind Build
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    container:
+      image: nvidia/cuda:12.4.1-devel-ubuntu22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: apt-get update && apt-get install -y build-essential cmake python3.10 python3.10-venv pip
+
+      - name: Compile pybind example
+        run: |
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt
+          export CUDA_PATH=/usr/local/cuda
+          export CUDA_ARCHITECTURE=75
+          ./examples/pybind/build.bash
+
+      - name: Verify mymatmul extension
+        run: |
+          if ! find .venv/lib/python3.10/site-packages/ -maxdepth 1 -type f -name 'mymatmul.cpython*.so' | grep -q .; then
+            echo "❌ mymatmul extension not found in site-packages"
+            exit 1
+          fi
