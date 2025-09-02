@@ -116,6 +116,11 @@ ____
   <img src="docs/figures/06_warptiling_sgemm.png" width="92%"/>
 </p>
 
+____
+### Tensorcores
+<p align="center">
+  <img src="docs/figures/07_tensorcores_sgemm.png" width="90%"/>
+</p>
 
 ## Tracing
 
