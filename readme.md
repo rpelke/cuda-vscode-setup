@@ -2,6 +2,7 @@
 This repository is designed to simplify your introduction to CUDA kernel development by providing a ready-to-use VSCode setup. With it, you can both profile your kernels and debug them directly from the VSCode editor, so you can dive into online tutorials immediately without wrestling with your toolchain first.
 - Build system: [CMake](CMakeLists.txt)
 - Example kernels: simple GEMM operations, inspired by the tutorials from [siboehm](https://siboehm.com/articles/22/CUDA-MMM) and [leimao](https://leimao.github.io/article/CUDA-Matrix-Multiplication-Optimization/).
+- Tested with [CUDA 13.0](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)
 
 
 ## Build sgemm kernels in VSCode
@@ -64,7 +65,7 @@ mkdir -p build/debug/build && cd build/debug/build
 cmake \
     -DCMAKE_BUILD_TYPE={Debug/Release} \
     -DCMAKE_INSTALL_PREFIX=../ \
-    -DCMAKE_CUDA_TOOLKIT_ROOT_DIR=<CUDA_PATH, e.g.: `/usr/local/cuda-12.4`> \
+    -DCMAKE_CUDA_TOOLKIT_ROOT_DIR=<CUDA_PATH, e.g.: `/usr/local/cuda-13`> \
     ../../../
 make
 make install

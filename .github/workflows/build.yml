@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     container:
-      image: nvidia/cuda:12.4.1-devel-ubuntu22.04
+      image: nvidia/cuda:13.0.0-devel-ubuntu22.04
 
     strategy:
       matrix:
