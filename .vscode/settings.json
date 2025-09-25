@@ -4,8 +4,8 @@
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json",
     "cmake.exportCompileCommandsFile": true,
     "cmake.configureSettings": {
-        "CUDA_PATH": "/usr/local/cuda-13", // Change this path if needed
-        "CMAKE_CUDA_COMPILER": "/usr/local/cuda-13/bin/nvcc", // Change this path if needed
+        "CUDA_PATH": "/usr/local/cuda-12", // Change this path if needed
+        "CMAKE_CUDA_COMPILER": "/usr/bin/nvcc", // Change this path if needed
         "CMAKE_BUILD_TYPE": "${variant:buildType}",
         "CMAKE_ENABLE_TRACING": "ON", // Enable/disable tracing information (for ncu)
         "CMAKE_CUDA_ARCHITECTURES": "75" // 75=RTX 20xx Turing, 80=Ampere, 86=RTX 30xx, 89/90=Ada/Hopper
