@@ -38,7 +38,7 @@ def sgemm_simple(A: torch.Tensor, B: torch.Tensor, C: torch.Tensor, alpha=1.0, b
     K2, N = B.shape
     assert K == K2, "Incompatible dimensions"
 
-    BLOCK_M, BLOCK_N = 32, 32
+    BLOCK_M, BLOCK_N = 64, 64
     grid = ((M + BLOCK_M - 1) // BLOCK_M,
             (N + BLOCK_N - 1) // BLOCK_N)
 
@@ -62,9 +62,9 @@ def main():
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
     # Matrix sizes
-    M_0 = 1027
-    N_0 = 1023
-    K_0 = 1025
+    M_0 = 10027
+    N_0 = 10023
+    K_0 = 10025
     alpha = 2.0
     beta = 3.0
 
