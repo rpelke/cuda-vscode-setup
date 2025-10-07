@@ -14,7 +14,7 @@
                 // If you use another cuda installation, e.g., /usr/local/cuda-13, use the following lines:
                 {
                     "name": "LD_LIBRARY_PATH",
-                    "value": "/usr/local/cuda-12/lib64" // Change this path if needed
+                    "value": "/usr/local/cuda-13/lib64" // Change this path if needed
                 }
             ]
         },
@@ -24,7 +24,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/debug/bin/sgemm",
             "cwd": "${workspaceFolder}",
-            "miDebuggerPath": "/usr/local/cuda-12.9/bin/cuda-gdb", // Change this path
+            "miDebuggerPath": "/usr/local/cuda-13/bin/cuda-gdb", // Change this path
             "environment": [
                 // For some debugging features, libpython3.6m.so is required.
                 // In case you don't have it in the default library paths:

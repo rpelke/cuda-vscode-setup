@@ -2,11 +2,7 @@ import torch
 import brevitas.nn as qnn
 import mymatmul
 
-matmul_layer = qnn.QuantLinear(
-    in_features=1024,
-    out_features=1024,
-    bias=False
-)
+matmul_layer = qnn.QuantLinear(in_features=1024, out_features=1024, bias=False)
 
 # Execute matmul in Python
 x = torch.randn(1, 1024)

@@ -26,5 +26,10 @@ jobs:
         with:
           python-version: '3.8'
       
-      - name: Test style 
-        run: ./util/format_cpp.py
+      - name: Create virtual environment
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install yapf
+          ./util/format_cpp.py
+          ./util/format_py.py
