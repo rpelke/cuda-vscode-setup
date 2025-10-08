@@ -49,13 +49,9 @@ To allow all users to run `ncu` without invoking `sudo`, NVIDIA describes a perm
 [here](https://developer.nvidia.com/nvidia-development-tools-solutions-err_nvgpuctrperm-permission-issue-performance-counters).
 
 1. Follow the steps on the website if you wish to continue without sudo.
-
 1. (F1) -> (Tasks: Run task) -> (Profile SGEMM with Nsight {sudo/ no sudo})
-
 1. Enter the kernel name, e.g., `sgemm_simple`
-
 1. Select the section you want to profile.
-
 1. Enter the sudo password in the terminal in VSCode.
 
 
@@ -77,6 +73,24 @@ make install
 # Show instructions
 ${CUDA_PATH}/bin/cuobjdump --dump-ptx build/{debug/release}/bin/sgemm
 ```
+
+
+## Run/Debug Python file
+This repository also contains a [Triton](https://triton-lang.org/main/index.html) implementation of a GEMM kernel.
+You can find it in [this](examples/triton) folder.
+To run the file (without debugging):
+
+1. Open the Python file you want to execute.
+1. Press (F1) -> Python: Run Python File in Terminal.
+
+To debug the Python file, use the corresponding [configuration](.vscode/launch.json).
+To debug the triton kernel, `TRITON_INTERPRET` needs to be set to `1`.
+This activates the interpreter mode instead of executing the compiled kernel.
+More information can be found [here](https://triton-lang.org/main/programming-guide/chapter-3/debugging.html).
+
+1. Open the Python file you want to debug.
+1. Press (F1) -> Debug: Select and Start Debugging
+1. Choose: Debug Python File
 
 
 ## Implementations included

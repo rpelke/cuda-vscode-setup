@@ -2,6 +2,16 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug Python File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "TRITON_INTERPRET": "1"  // Set to "1" to debug (interpret) Triton code
+            }
+        },
+        {
             "name": "Run kernel",
             "type": "cppdbg",
             "request": "launch",
