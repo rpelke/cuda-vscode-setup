@@ -76,6 +76,17 @@ ${CUDA_PATH}/bin/cuobjdump --dump-ptx build/{debug/release}/bin/sgemm
 
 
 ## Run/Debug Python file
+Install requirements:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Reload VSCode `(F1) -> Developer: Reload Window` to ensure that the venv is activated when you open a new terminal.
+If not: `(F1) -> Python: Create Environment... -> Venv -> Use Existing` and reload the window again.
+
 This repository also contains a [Triton](https://triton-lang.org/main/index.html) implementation of a GEMM kernel.
 You can find it in [this](examples/triton) folder.
 To run the file (without debugging):
