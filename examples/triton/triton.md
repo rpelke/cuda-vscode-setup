@@ -1,4 +1,4 @@
-# How Triton Works (Compare to CUDA C++) 
+# How Triton Works (A Comparison to CUDA C++) 
 Triton is an open-source language and compiler for writing custom GPU kernels directly in Python. You write a ''single-program'' kernel with `triton.jit`, launch it over a grid of program instances (similar to CUDA thread blocks), and Triton compiles it Just-In-Time to highly optimized GPU code.
 
 
@@ -98,6 +98,7 @@ More stages lead to a better overlap.
 However, this comes at the cost of a higher requirement for registers per thread (for A/B fragment base address, masks, addresses, loop variables, etc.) and a higher requirement for shared memory.
 Therefore, too many stages can lead to register spills and reduced occupancy.
 
+A nice explaination of this concept, also called *pipelining*, can be found [here](https://research.colfax-intl.com/cutlass-tutorial-design-of-a-gemm-kerne).
 
 ### Occupancy
 A warp is considered active from the time its threads begin executing to the time when all threads in the warp have exited from the kernel. There is a maximum number of warps which can be concurrently active on a Streaming Multiprocessor (SM). Occupancy is defined as the ratio of active warps on an SM to the maximum number of active warps supported by the SM. Occupancy varies over time as warps begin and end, and can be different for each SM
@@ -106,3 +107,71 @@ A warp is considered active from the time its threads begin executing to the tim
 The number of warps per SM cannot be chosen directly by the programmer but indirectly by the choice of the workload distribution, register requirements per thread (register file is shared among all active threads on an SM), shared memory per block etc.
 For memory-bound applications, it is nice to have a high occupancy to hide the load/store latency effectively.
 For compute-bound applications, a high occupancy is not so important (sometimes even bad [[Source]](https://www.nvidia.com/content/gtc-2010/pdfs/2238_gtc2010.pdf)) because a smaller number of warps per SM can already utilize the ALU pipelines.
+
+
+### L2-Cache Reuse using Thread-Group ID Swizzling
+
+When we take a look at the kernel launch in [gemm_triton.py](gemm_triton.py), we see that a 1D grid is created.
+After that, the so-called program IDs (`pid`) are used to calculate the block indices in a 2D grid (`pid_m`, `pid_n`):
+
+```Python
+grid = lambda META: ( \
+    triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), )
+```
+
+The variables `pid_m` and `pid_n` are then used to calculate the addresses inside the matrices `A`, `B`, and `C`.
+Now, one might ask, why don't we launch the kernel like this:
+
+```Python
+grid = lambda META: ( \
+    triton.cdiv(M, META['BLOCK_SIZE_M']), triton.cdiv(N, META['BLOCK_SIZE_N']), )
+```
+
+In that 2D case, we could directly access `pid_m` and `pid_n` inside the kernel.
+However, with the 1D launch we instead derive them via a mapping like this:
+
+```Python
+num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
+num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
+GROUP_SIZE = SWIZZLE_N * num_pid_n
+group_id = pid // GROUP_SIZE
+group_offs = SWIZZLE_N * group_id
+pid_m = (pid % SWIZZLE_N) + group_offs
+group_size_m = min(num_pid_m - group_offs, SWIZZLE_N)
+pid_n = (pid % GROUP_SIZE) // group_size_m
+```
+
+The reason why we don't launch the 2D grid is that we want to optimize L2 cache reuse.
+In contrast to the L1 cache, which is only per-SM, the L2 cache is global and shared by all SMs.
+When multiple blocks load or store the same or adjacent data from/to `A` and `B`, that data is likely still in the L2 cache.
+Let's look at the launch order of the blocks in the matrix-matrix multiplication `A × B = C`:
+
+<p align="center">
+  <img src="figures/triton_swizzling.png" width="65%"/>
+</p>
+
+Assume blocks 0–3 are executed around the same time.
+When we launch them row-wise, we get a lot of reuse along `A` but little reuse along `B`. Cache misses for `B` are likely to occur.
+To also improve the likelihood of cache hits in `B`, we can use the assignment on the right-hand side.
+This is called *threadblock swizzling*, here `swizzle = 2`.
+You can swizzle along `N` or `M`.
+Swizzling means creating a mapping from `blockIdx → (tile_m, tile_n)` in a zig-zag order.
+As a result, adjacent tiles (adjacent block IDs) are closer together in space and time.
+
+More sources:
+
+* [Thread-group ID swizzling](https://developer.nvidia.com/blog/optimizing-compute-shaders-for-l2-locality-using-thread-group-id-swizzling)
+* [Persistent Kernels and Stream-K](https://research.colfax-intl.com/cutlass-tutorial-persistent-kernels-and-stream-k)
+
+To implement this (i.e., to get the code snippet shown above), we need to think about the following translation problem:
+
+<p align="center">
+  <img src="figures/triton_id_translation.png" width="75%"/>
+</p>
+
+On the left side, we can see the desired block dispatch order.
+On the right side, we have a normal 2D grid.
+`SWIZZLE_N` is an optimization parameter.
+It is important to note that we cannot guarantee that the blocks are dispatched in the order of their IDs, i.e., 0 → 1 → 2 → 3 …
+NVIDIA specifies that blocks must be independent, In principle, they can be executed in any order.
+However, this concept often brings performance improvements because it has been empirically observed that the block dispatcher frequently schedules blocks from roughly ascending ID ranges (though this is not guaranteed) [[source](https://forums.developer.nvidia.com/t/what-is-the-execution-order-of-cuda-blocks/298502)].

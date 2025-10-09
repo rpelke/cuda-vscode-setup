@@ -7,101 +7,107 @@ DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 def get_cuda_autotune_config():
     return [
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 128,
-                'BLOCK_SIZE_N': 128,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=4,
-            num_warps=4),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 128,
-                'BLOCK_SIZE_N': 64,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=4,
-            num_warps=4),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 64,
-                'BLOCK_SIZE_N': 128,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=4,
-            num_warps=4),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 64,
-                'BLOCK_SIZE_N': 64,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=5,
-            num_warps=2),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 128,
-                'BLOCK_SIZE_N': 256,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=3,
-            num_warps=8),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 256,
-                'BLOCK_SIZE_N': 128,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=3,
-            num_warps=8),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 128,
-                'BLOCK_SIZE_N': 32,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=4,
-            num_warps=4),
-        triton.Config(
-            {
-                'BLOCK_SIZE_M': 32,
-                'BLOCK_SIZE_N': 128,
-                'BLOCK_SIZE_K': 32,
-                'GROUP_SIZE_M': 8
-            },
-            num_stages=4,
-            num_warps=4),
+        triton.Config({
+            'BLOCK_SIZE_M': 128,
+            'BLOCK_SIZE_N': 128,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=4,
+                      num_warps=4),
+        triton.Config({
+            'BLOCK_SIZE_M': 128,
+            'BLOCK_SIZE_N': 64,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=4,
+                      num_warps=4),
+        triton.Config({
+            'BLOCK_SIZE_M': 64,
+            'BLOCK_SIZE_N': 128,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=4,
+                      num_warps=4),
+        triton.Config({
+            'BLOCK_SIZE_M': 64,
+            'BLOCK_SIZE_N': 64,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=5,
+                      num_warps=2),
+        triton.Config({
+            'BLOCK_SIZE_M': 128,
+            'BLOCK_SIZE_N': 256,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=3,
+                      num_warps=8),
+        triton.Config({
+            'BLOCK_SIZE_M': 256,
+            'BLOCK_SIZE_N': 128,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=3,
+                      num_warps=8),
+        triton.Config({
+            'BLOCK_SIZE_M': 128,
+            'BLOCK_SIZE_N': 32,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=4,
+                      num_warps=4),
+        triton.Config({
+            'BLOCK_SIZE_M': 32,
+            'BLOCK_SIZE_N': 128,
+            'BLOCK_SIZE_K': 32,
+            'SWIZZLE_N': 8
+        },
+                      num_stages=4,
+                      num_warps=4),
     ]
 
 
 @triton.autotune(configs=get_cuda_autotune_config(), key=['M', 'N', 'K'])
 @triton.jit
 def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
-                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr,
-                  GROUP_SIZE_M: tl.constexpr):
+                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_N: tl.constexpr):
     """
     C = A x B
     A: (M, K) float32
     B: (K, N) float32
     C: (M, N) float32
     """
+    # pid: program ID
+    # Corresponds to blockIdx.x in CUDA (axis=0)
+    # Get the maximum number of program IDs: tl.num_programs(axis=0)
     pid = tl.program_id(axis=0)
+
+    # Maximum number of program IDs along M and N axes
+    # tl.num_programs(axis=0) = num_pid_m * num_pid_n
     num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
     num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
-    num_pid_in_group = GROUP_SIZE_M * num_pid_n
-    group_id = pid // num_pid_in_group
-    first_pid_m = group_id * GROUP_SIZE_M
-    group_size_m = min(num_pid_m - first_pid_m, GROUP_SIZE_M)
-    pid_m = first_pid_m + ((pid % num_pid_in_group) % group_size_m)
-    pid_n = (pid % num_pid_in_group) // group_size_m
+
+    # Translate 1D pid to 2D (pid_m, pid_n)
+    # An example is shown below. For a more detailed explanation, see `triton.md`.
+    #m\n |  0   1   2   3   4   5         m\n |  0    1    2    3    4    5
+    #----+-----------------------         ----+-----------------------------
+    # 0  |  0   2   4   6   8  10          0  | 0,0  0,1  0,2  0,3  0,4  0,5
+    # 1  |  1   3   5   7   9  11    to    1  | 1,0  1,1  1,2  1,3  1,4  1,5
+    # 2  | 12  14  16  18  20  22          2  | 2,0  2,1  2,2  2,3  2,4  2,5
+    # 3  | 13  15  17  19  21  23          3  | 3,0  3,1  3,2  3,3  3,4  3,5
+    GROUP_SIZE = SWIZZLE_N * num_pid_n
+    group_id = pid // GROUP_SIZE
+    group_offs = SWIZZLE_N * group_id
+    pid_m = (pid % SWIZZLE_N) + group_offs
+    group_size_m = min(num_pid_m - group_offs, SWIZZLE_N)
+    pid_n = (pid % GROUP_SIZE) // group_size_m
 
     tl.assume(pid_m >= 0)
     tl.assume(pid_n >= 0)
