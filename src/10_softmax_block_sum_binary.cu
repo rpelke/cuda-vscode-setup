@@ -40,71 +40,73 @@ __global__ void softmax_block_binary_k0(int M, int N, const float *A, float *C, 
 
     // Each thread calculates a partial sum
     int i = 1;
-    for (; i < blockDim.y; i*=2) {
-        if(threadIdx.y % i == 0 && localStartElem+i < blockDim.y) {
+    for (; i <= blockDim.y; i*=2) {
+        bool outOfBlock = 2*threadIdx.y+i >= blockDim.y;
+        bool outOfMat = y+threadIdx.y+i >= N;
+        if(threadIdx.y % i == 0 && !outOfBlock && !outOfMat) {
             if (i == 1) As[localStartElem] += expf(As[localStartElem + i]);
             else As[localStartElem] += As[localStartElem + i];
         }
         __syncthreads();
     }
     // Handle leftover (additional add necessary if blockDim.y not a power of 2)
-    if (i != blockDim.y) {
-        if(threadIdx.y % i == 0) {
+    /*if (i != blockDim.y) {
+        if(threadIdx.y % i == 0 && 2*threadIdx.y+i < blockDim.y) {
             if (i == 1) As[localStartElem] += expf(As[localStartElem + i]);
             else As[localStartElem] += As[localStartElem + i];
         }
         __syncthreads();
-    }
-
-    // TODO: Reduction across blocks (global sync not possible, write to global mem, launch another kernel)
+    }*/
 
     if(threadIdx.y == 0)
-        temp[(blockIdx.x * blockDim.x + threadIdx.x) * gridDim.y + blockIdx.y] = As[localStartElem];
+        temp[x * gridDim.y + blockIdx.y] = As[localStartElem];
 
 }
 
 // Kernel 1 does reduction across blocks (use a single y-block for this)
-__global__ void softmax_block_binary_k1(int M, int N, const float *A, float *C, float *temp) {
+__global__ void softmax_block_binary_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_y_k0) {
 
     // load temp into shared mem (split along x-axis)
-    __shared__ float temp_s[BLOCKSIZE_10 * BLOCKSIZE_10]; // Ensure blockDim.y is equals gridSize.y from k0
+    extern __shared__ float temp_s[]; // BLOCKSIZE_10*gridDim_y_k0
 
     // Threads that exceed block should idle
-    if(2*threadIdx.y >= blockDim.y) return;
+    if(2*threadIdx.y >= gridDim_y_k0) return;
 
     // Each thread loads it's start element and it's neighbour (if exists)
-    int startElem = threadIdx.x * blockDim.y + 2*threadIdx.y;
+    int startElem = threadIdx.x * gridDim_y_k0 + 2*threadIdx.y;
 
     temp_s[startElem] = temp[startElem];
-    if(threadIdx.y+1 < blockDim.y)
+    if(threadIdx.y+1 < gridDim_y_k0)
         temp_s[startElem + 1] = temp[startElem+1];
 
     __syncthreads();
 
     // Each thread calculates a partial sum
     int i = 1;
-    for (; i < blockDim.y; i*=2) {
+    for (; i <= gridDim_y_k0; i*=2) {
     //for (; i <= 4; i*=2) {
-        if(threadIdx.y % i == 0) {
+        if(threadIdx.y % i == 0 && 2*threadIdx.y+i < gridDim_y_k0) {
             temp_s[startElem] += temp_s[startElem + i];
         }
         __syncthreads();
     }
 
     // Handle leftover (additional adds necessary if blockDim.y not a power of 2)
-    if (i != blockDim.y) {
-        if(threadIdx.y % i == 0) {
+    if (i != gridDim_y_k0) {
+        if(threadIdx.y % i == 0 && 2*threadIdx.y+i < gridDim_y_k0) {
             temp_s[startElem] += temp_s[startElem + i];
         }
         __syncthreads();
     }
 
     // Write result back to temp
-    if (threadIdx.x == 0 && threadIdx.y == 0) {
-        temp[0] = temp_s[0];
-    }
-    //if(threadIdx.y == 0)
-        //temp[(blockIdx.x * blockDim.x + threadIdx.x) * blockDim.y] = temp_s[threadIdx.x*blockDim.y];
+    /*if (threadIdx.x == 0 && threadIdx.y == 0) {
+        //temp[0] = blockDim.y;
+        temp[0] = 0;
+    }*/
+    if(threadIdx.y == 0)
+        temp[(blockIdx.x * blockDim.x + threadIdx.x) * gridDim_y_k0] = temp_s[threadIdx.x*gridDim_y_k0];
+        //temp[(blockIdx.x * blockDim.x + threadIdx.x) * blockDim.y] = blockDim.y;
 }
 
 // Kernel 2 does final calculation on reduced values
