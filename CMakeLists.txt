@@ -19,6 +19,7 @@ add_executable(
     main.cu
     src/benchmark.cu
     src/sgemm_cpu.cpp
+    src/softmax_cpu.cpp
     src/00_sgemm_simple.cu
     src/01_sgemm_coalesced.cu
     src/02_sgemm_tiled.cu
@@ -27,6 +28,9 @@ add_executable(
     src/05_sgemm_tiled_2d_vectorized_2.cu
     src/06_sgemm_warptiling.cu
     src/07_tensor_cores.cu
+    src/08_softmax_simple.cu
+    src/09_softmax_block_sum.cu
+    src/10_softmax_block_sum_binary.cu
 )
 
 if(CMAKE_ENABLE_TRACING)

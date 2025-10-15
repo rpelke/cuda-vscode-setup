@@ -7,6 +7,7 @@
 
 #include "benchmark.cuh"
 #include "sgemm.cuh"
+#include "softmax.cuh"
 
 #define CUDA_CHECK(val) cudaCheck((val), __FILE__, __LINE__)
 inline void cudaCheck(cudaError_t err, const char *file, int line) {
@@ -43,6 +44,21 @@ void Benchmark::init_matrices(int M, int K, int N) {
     }
 }
 
+void Benchmark::init_matrices(int M, int K) {
+    h_A.resize(M * K);
+    h_C.resize(M * K);
+    h_C_cpu.resize(M * K);
+    h_C_init.resize(M * K);
+
+    for (int i = 0; i < M * K; ++i)
+        h_A[i] = static_cast<float>(rand()) / RAND_MAX;
+    for (int i = 0; i < M * K; ++i) {
+        h_C_cpu[i] = static_cast<float>(rand()) / RAND_MAX;
+        h_C_init[i] = h_C_cpu[i];
+        h_C[i] = 0.0f;
+    }
+}
+
 void Benchmark::copy_to_device(int M, int K, int N,
                                std::vector<float> &res_vector) {
     CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
@@ -52,6 +68,18 @@ void Benchmark::copy_to_device(int M, int K, int N,
     CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), h_A.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_B, h_B.data(), h_B.size() * sizeof(float),
+                          cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_C, res_vector.data(),
+                          res_vector.size() * sizeof(float),
+                          cudaMemcpyHostToDevice));
+}
+
+void Benchmark::copy_to_device(int M, int K,
+                               std::vector<float> &res_vector) {
+    CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_C, M * K * sizeof(float)));
+
+    CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), h_A.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_C, res_vector.data(),
                           res_vector.size() * sizeof(float),
@@ -79,6 +107,7 @@ bool Benchmark::validate_results(std::vector<float> &C_test,
     int mismatches = 0;
     float max_err = 0.0f;
     for (int i = 0; i < M * N; ++i) {
+        //std::cout << C_test[i] << ", " << h_C_cpu[i] << std::endl;
         float e = std::abs(C_test[i] - h_C_cpu[i]);
         if (e > atol) {
             ++mismatches;
@@ -103,8 +132,25 @@ double Benchmark::benchmark_cpu(int M, int K, int N, float alpha, float beta) {
         .count();
 }
 
+double Benchmark::benchmark_softmax_cpu(int M, int K) {
+    auto cpu_start = std::chrono::high_resolution_clock::now();
+    std::cout << "Starting cpu calculation..." << std::endl;
+    cpu_softmax(M, K, h_A, h_C_cpu);
+    auto cpu_end = std::chrono::high_resolution_clock::now();
+    return std::chrono::duration<double, std::milli>(cpu_end - cpu_start)
+        .count();
+}
+
 double Benchmark::ms_to_gflops(int M, int K, int N, double ms) {
     double gflops = 2.0 * M * N * K / (ms * 1e6);
+    return gflops;
+}
+
+// Assuming full reuse of partial results
+double Benchmark::ms_to_gflops(int M, int N, double ms) {
+    int sum_ops = M * N + M * (N-1); // exp calls + sums
+    int div_ops = M * N;
+    double gflops = (sum_ops + div_ops) / (ms * 1e6);
     return gflops;
 }
 
@@ -155,6 +201,92 @@ void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
     copy_results_to_host(M, N, h_C);
     validate_results(h_C, kernel_name, M, N, atol);
     print_results(kernel_ms, kernel_gflops, kernel_name);
+    free_device_mem();
+}
+
+void Benchmark::benchmark_softmax_kernel(int M, int K,
+                                 dim3 gridDim, dim3 blockDim,
+                                 softmax_kernel_t launcher,
+                                 std::string kernel_name, float atol = 1e-2f) {
+    copy_to_device(M, K, h_C_init);
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    cudaEventRecord(start);
+    launcher(M, K, d_A, d_C, gridDim, blockDim);
+    cudaEventRecord(stop);
+
+    cudaError_t err = cudaEventSynchronize(stop);
+    if (err != cudaSuccess)
+        printf("Kernel error: %s\n", cudaGetErrorString(err));
+
+    float kernel_ms;
+    cudaEventElapsedTime(&kernel_ms, start, stop);
+    float kernel_gflops = ms_to_gflops(M, K, kernel_ms);
+    copy_results_to_host(M, K, h_C);
+    validate_results(h_C, kernel_name, M, K, atol);
+    print_results(kernel_ms, kernel_gflops, kernel_name);
+    free_device_mem();
+}
+
+void Benchmark::benchmark_binary_softmax_kernel(int M, int K,
+                                 dim3 gridDim, dim3 blockDim, float atol = 1e-2f) {
+    copy_to_device(M, K, h_C_init);
+
+    // Init and copy temp matrix
+    float *d_temp;
+    std::vector<float> h_temp_init;
+    h_temp_init.resize(M * gridDim.y);
+    for (int i = 0; i < M * gridDim.y; ++i) {
+        h_temp_init[i] = static_cast<float>(rand()) / RAND_MAX;
+    }
+    CUDA_CHECK(cudaMalloc(&d_temp, M * gridDim.y * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(d_temp, h_temp_init.data(),
+                          h_temp_init.size() * sizeof(float),
+                          cudaMemcpyHostToDevice));
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    /*std::cout << "h_A: ";
+    for(int i = 0; i < 32; i++) {
+        std::cout << h_A[i] << ", ";
+    }*/
+
+    cudaEventRecord(start);
+    std::cout << "Starting k0" << std::endl;
+    softmax_block_binary_k0<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp);
+    std::cout << "Starting k1" << std::endl;
+    softmax_block_binary_k1<<<dim3(gridDim.x, 1, gridDim.z), blockDim>>>(M, K, d_A, d_C, d_temp);
+    std::cout << "Starting k2" << std::endl;
+    softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp);
+    cudaEventRecord(stop);
+
+    // test transfer back
+    cudaMemcpy(h_temp_init.data(), d_temp, h_temp_init.size() * sizeof(float),
+               cudaMemcpyDeviceToHost);
+
+    /*std::cout << "d_temp: ";
+    for(int i = 0; i < 10; i++) {
+        std::cout << h_temp_init[i] << ", ";
+    }*/
+
+    // Free temp matrix
+    cudaFree(d_temp);
+
+    cudaError_t err = cudaEventSynchronize(stop);
+    if (err != cudaSuccess)
+        printf("Kernel error: %s\n", cudaGetErrorString(err));
+
+    float kernel_ms;
+    cudaEventElapsedTime(&kernel_ms, start, stop);
+    float kernel_gflops = ms_to_gflops(M, K, kernel_ms);
+    copy_results_to_host(M, K, h_C);
+    validate_results(h_C, "softmax_block_binary", M, K, 1e-2f);
+    print_results(kernel_ms, kernel_gflops, "softmax_block_binary");
     free_device_mem();
 }
 
@@ -299,4 +431,39 @@ void Benchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
                                                      C);
         },
         "Kernel 07", 1e-1f /*Higher tolerance due to fp32->fp16 conversion*/);
+}
+
+void Benchmark::start_softmax_benchmarks(int M, int K) {
+    std::cout << "Starting softmax benchmarks" << std::endl;
+    // Initialize matrices
+    init_matrices(M, K);
+    std::cout << "Initiated matrices" << std::endl;
+
+    // CPU reference
+    double cpu_ms = benchmark_softmax_cpu(M, K);
+    double cpu_gflops = ms_to_gflops(M, K, cpu_ms);
+    print_results(cpu_ms, cpu_gflops, "CPU");
+
+    // 08: Test simple softmax
+    dim3 blockDim_00(BLOCKSIZE_00, BLOCKSIZE_00, 1);
+    dim3 gridDim_00(CEIL_DIV(M, BLOCKSIZE_00), CEIL_DIV(K, BLOCKSIZE_00), 1);
+    benchmark_softmax_kernel(
+        M, K, gridDim_00, blockDim_00,
+        [](int M, int K, const float *A, float *C, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_simple<<<gridDim, blockDim>>>(M, K, A, C);
+        },
+        "Kernel 08");
+
+    // 09: Test softmax with partial summation
+    benchmark_softmax_kernel(
+        M, K, gridDim_00, blockDim_00,
+        [](int M, int K, const float *A, float *C, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_sum<<<gridDim, blockDim>>>(M, K, A, C);
+        },
+        "Kernel 09");
+
+
+    // 09: Test softmax with binary summation
+    benchmark_binary_softmax_kernel(
+        M, K, gridDim_00, blockDim_00);
 }

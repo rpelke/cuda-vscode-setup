@@ -6,7 +6,7 @@
       "type": "shell",
       "command": "sudo",
       "args": [
-        "${config:CudaToolkitPath}/bin/ncu",
+        "/usr/local/cuda-13/bin/ncu",
         "--kernel-name", "${input:kernelName}",
         "--section", "${input:section}",
         "${workspaceFolder}/build/release/bin/sgemm"
@@ -21,7 +21,7 @@
     {
       "label": "Profile SGEMM with Nsight (no sudo)",
       "type": "shell",
-      "command": "${config:CudaToolkitPath}/bin/ncu", 
+      "command": "/usr/local/cuda-13/bin/ncu", 
       "args": [
         "--kernel-name", "${input:kernelName}",
         "--section", "${input:section}",

@@ -47,4 +47,7 @@ constexpr int BLOCKSIZE_07 = 16;
 constexpr int TM_07 = 8;
 constexpr int TN_07 = 1;
 
+// Kernel 10
+constexpr int BLOCKSIZE_10 = 32;
+
 #endif // SGEMM_KERNEL_DIMENSION_CUH

@@ -7,4 +7,6 @@ int main() {
 
     Benchmark b;
     b.start_benchmarks(M_0, K_0, N_0, 2.0f, 3.0f);
+
+    b.start_softmax_benchmarks(M_0, K_0);
 }
