@@ -251,41 +251,19 @@ void Benchmark::benchmark_binary_softmax_kernel(int M, int K,
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    std::cout << "h_A: ";
-    for(int i = 32; i < 32+32; i++) {
-        std::cout << h_A[i] << ", ";
-    }
-    std::cout << std::endl;
-
-    //dim3 blockDim_k1(BLOCKSIZE_00, CEIL_DIV(K, BLOCKSIZE_00), 1); // BlockDim.y has to match former gridDim.y 
-    dim3 blockDim_k1(BLOCKSIZE_00, BLOCKSIZE_00, 1); // BlockDim.y has to match former gridDim.y 
+    // Grid for k1 has only one column
     dim3 gridDim_k1(gridDim.x, 1, gridDim.z);
+    int gridDim_y_k0 = CEIL_DIV(K, BLOCKSIZE_00);
 
     cudaEventRecord(start);
-    std::cout << "Starting k0" << std::endl;
     softmax_block_binary_k0<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp);
-    std::cout << "Starting k1" << std::endl;
-    softmax_block_binary_k1<<<gridDim_k1, blockDim_k1, CEIL_DIV(K, BLOCKSIZE_00)*BLOCKSIZE_00 * sizeof(float)>>>(M, K, d_A, d_C, d_temp, CEIL_DIV(K, BLOCKSIZE_00));
-    std::cout << "Starting k2" << std::endl;
-    softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp);
+    softmax_block_binary_k1<<<gridDim_k1, blockDim, gridDim_y_k0*BLOCKSIZE_00 * sizeof(float)>>>(M, K, d_A, d_C, d_temp, gridDim_y_k0);
+    softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp, gridDim_y_k0);
     cudaEventRecord(stop);
 
     // test transfer back
     cudaMemcpy(h_temp_init.data(), d_temp, h_temp_init.size() * sizeof(float),
                cudaMemcpyDeviceToHost);
-
-    //std::cout << "Test: x[0][0]: " << h_temp_init[0] << ", x[1][0]: " << h_temp_init[33] << std::endl;
-    std::cout << "Test: ";
-    for (int i = 0; i < 33; i++) {
-        std::cout << h_temp_init[i] << ", ";
-    }
-    std::cout << std::endl;
-    //std::cout << "Test: x[0][0]: " << h_temp_init[0] << ", x[0][1]: " << h_temp_init[1] << std::endl;
-
-    std::cout << "d_temp[][0]: ";
-    for(int i = 0; i < 5; i++) {
-        std::cout << h_temp_init[i*gridDim.y] << ", ";
-    }
 
     // Free temp matrix
     cudaFree(d_temp);
