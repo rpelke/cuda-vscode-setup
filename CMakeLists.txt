@@ -31,6 +31,7 @@ add_executable(
     src/08_softmax_simple.cu
     src/09_softmax_block_sum.cu
     src/10_softmax_block_sum_binary.cu
+    src/11_softmax_binary_non_divergent.cu
 )
 
 if(CMAKE_ENABLE_TRACING)
