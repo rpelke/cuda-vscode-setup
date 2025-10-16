@@ -11,24 +11,26 @@
 //       | b_x1_y0_s0 b_x1_y1_s0
 //       | b_x1_y0_s1 b_x1_y1_s1
 
-__global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, float *C, float *temp) { // temp holds results for across-block reduction
+__device__ constexpr int CEIL_DIV(int a, int b) { return (a + b - 1) / b; }
+
+__global__ void softmax_sequential_access_k0(int M, int N, const float *A, float *C, float *temp) { // temp holds results for across-block reduction
     // Position in array C from a global perspective:
 
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
-    const unsigned int y = threadIdx.y + blockIdx.y * BLOCKSIZE_Y_11;
+    const unsigned int y = threadIdx.y + blockIdx.y * BLOCKSIZE_10;
 
     int globalStartElem = x*N+y+threadIdx.y;
-    int localStartElem = threadIdx.x * BLOCKSIZE_Y_11 + 2*threadIdx.y;
+    int localStartElem = threadIdx.x * BLOCKSIZE_10 + 2*threadIdx.y;
 
     // load A into shared mem
-    __shared__ float As[BLOCKSIZE_11 * BLOCKSIZE_Y_11];
+    __shared__ float As[BLOCKSIZE_10 * BLOCKSIZE_10];
 
     // Threads that exceed block should idle
-    if(2*threadIdx.y >= BLOCKSIZE_Y_11) return;
+    if(2*threadIdx.y >= BLOCKSIZE_10) return;
 
     // Each thread loads it's start element and it's neighbour (if exists)
     As[localStartElem] = A[globalStartElem];
-    if(2*threadIdx.y+1 < BLOCKSIZE_Y_11)
+    if(2*threadIdx.y+1 < BLOCKSIZE_10)
         As[localStartElem + 1] = A[globalStartElem+1];
 
     __syncthreads();
@@ -39,15 +41,15 @@ __global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, fl
     __syncthreads();
 
     // Each thread calculates a partial sum
-    int i = 1;
-    for (; i <= BLOCKSIZE_Y_11; i*=2) {
-        int index = 2*i*threadIdx.y;
-        bool outOfBlock = index+i >= BLOCKSIZE_Y_11;
-        bool outOfMat = blockIdx.y*BLOCKSIZE_Y_11+index+i >= N;
+    int i = blockDim.y;
+    //for (; i > 1; i=(i==1)?0:CEIL_DIV(i, 2)) {
+    for (; i > 1; i=0) {
+        bool outOfBlock = threadIdx.y+i >= BLOCKSIZE_10;
+        bool outOfMat = threadIdx.x*BLOCKSIZE_10+threadIdx.y+i >= N;
 
-        if(!outOfBlock && !outOfMat) {
-            if (i == 1) As[threadIdx.x*BLOCKSIZE_Y_11+index] += expf(As[threadIdx.x*BLOCKSIZE_Y_11+index + i]);
-            else As[threadIdx.x*BLOCKSIZE_Y_11+index] += As[threadIdx.x*BLOCKSIZE_Y_11+index + i];
+        if(threadIdx.y < i && !outOfBlock && !outOfMat) {
+            if (i == 1) As[threadIdx.x*BLOCKSIZE_10+threadIdx.y] += expf(As[threadIdx.x*BLOCKSIZE_10+threadIdx.y+i]);
+            else As[threadIdx.x*BLOCKSIZE_10+threadIdx.y] += As[threadIdx.x*BLOCKSIZE_10+threadIdx.y+i];
         }
         __syncthreads();
     }
@@ -57,7 +59,7 @@ __global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, fl
 }
 
 // Kernel 1 does reduction across blocks (use a single y-block for this)
-__global__ void softmax_binary_non_divergent_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_y_k0) {
+__global__ void softmax_sequential_access_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_y_k0) {
 
     // load temp into shared mem (split along x-axis)
     extern __shared__ float temp_s[]; // BLOCKSIZE_10*gridDim_y_k0

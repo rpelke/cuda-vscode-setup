@@ -232,17 +232,17 @@ void Benchmark::benchmark_softmax_kernel(int M, int K,
 }
 
 void Benchmark::benchmark_triple_softmax_kernel(int M, int K,
-                                 dim3 gridDim, dim3 gridDim_k1, dim3 blockDim, dim3 blockDim_k0, softmax_init_kernel_t k0, softmax_followUp_kernel_t k1, softmax_followUp_kernel_t k2, std::string kernel_name, float atol = 1e-2f) {
+                                 dim3 gridDim_k0, dim3 gridDim_k1, dim3 gridDim_k2, dim3 blockDim, dim3 blockDim_k0, softmax_init_kernel_t k0, softmax_followUp_kernel_t k1, softmax_followUp_kernel_t k2, std::string kernel_name, float atol = 1e-2f) {
     copy_to_device(M, K, h_C_init);
 
     // Init and copy temp matrix
     float *d_temp;
     std::vector<float> h_temp_init;
-    h_temp_init.resize(M * gridDim.y);
-    for (int i = 0; i < M * gridDim.y; ++i) {
+    h_temp_init.resize(M * gridDim_k0.y);
+    for (int i = 0; i < M * gridDim_k0.y; ++i) {
         h_temp_init[i] = static_cast<float>(rand()) / RAND_MAX;
     }
-    CUDA_CHECK(cudaMalloc(&d_temp, M * gridDim.y * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_temp, M * gridDim_k0.y * sizeof(float)));
     CUDA_CHECK(cudaMemcpy(d_temp, h_temp_init.data(),
                           h_temp_init.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
@@ -258,9 +258,9 @@ void Benchmark::benchmark_triple_softmax_kernel(int M, int K,
     std::cout << std::endl;*/
 
     cudaEventRecord(start);
-    k0(M, K, d_A, d_C, d_temp, gridDim, blockDim_k0);
-    k1(M, K, d_A, d_C, d_temp, gridDim.y, gridDim_k1, blockDim);
-    k2(M, K, d_A, d_C, d_temp, gridDim.y, gridDim, blockDim);
+    k0(M, K, d_A, d_C, d_temp, gridDim_k0, blockDim_k0);
+    k1(M, K, d_A, d_C, d_temp, gridDim_k0.y, gridDim_k1, blockDim);
+    k2(M, K, d_A, d_C, d_temp, gridDim_k0.y, gridDim_k2, blockDim);
     cudaEventRecord(stop);
 
     // test transfer back
@@ -269,8 +269,8 @@ void Benchmark::benchmark_triple_softmax_kernel(int M, int K,
 
     std::cout << "Test: " << std::endl;
     for (int i = 0; i < 32; i++) {
-        //std::cout << h_temp_init[i*gridDim.y] << ", ";
-        std::cout << h_temp_init[i] << ", ";
+        std::cout << h_temp_init[i*gridDim_k0.y] << ", ";
+        //std::cout << h_temp_init[i] << ", ";
     }
     std::cout << std::endl;
 
@@ -464,12 +464,12 @@ void Benchmark::start_softmax_benchmarks(int M, int K) {
         "Kernel 09");
 
     
-    // 09: Test softmax with binary summation
+    // 10: Test softmax with binary summation
 
     // Grid for k1 has only one column
     dim3 gridDim_k1(gridDim_00.x, 1, gridDim_00.z);
     benchmark_triple_softmax_kernel(
-        M, K, gridDim_00, gridDim_k1, blockDim_00, blockDim_00,
+        M, K, gridDim_00, gridDim_k1, gridDim_00, blockDim_00, blockDim_00,
         [](int M, int K, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
             softmax_block_binary_k0<<<gridDim, blockDim>>>(M, K, A, C, temp);
         },
@@ -482,10 +482,11 @@ void Benchmark::start_softmax_benchmarks(int M, int K) {
         "softmax_binary"
     );
 
-    // 10: Test softmax with binary summation
+    // 11: Test softmax with binary summation
     dim3 blockDim_10_k0(BLOCKSIZE_00, CEIL_DIV(BLOCKSIZE_00, 2), 1);
+    dim3 gridDim_k0(CEIL_DIV(M, BLOCKSIZE_00), CEIL_DIV(K, 2*BLOCKSIZE_00), 1);
     benchmark_triple_softmax_kernel(
-        M, K, gridDim_00, gridDim_k1, blockDim_00, blockDim_10_k0,
+        M, K, gridDim_k0, gridDim_k1, gridDim_00, blockDim_00, blockDim_00,
         [](int M, int K, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
             softmax_binary_non_divergent_k0<<<gridDim, blockDim>>>(M, K, A, C, temp);
         },
@@ -495,6 +496,21 @@ void Benchmark::start_softmax_benchmarks(int M, int K) {
         [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
             softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, A, C, temp, gridDim_y_k0);
         },
-        "softmax_binary"
+        "softmax_binary_non_divergent"
+    );
+
+    // 12: Test softmax with binary summation
+    benchmark_triple_softmax_kernel(
+        M, K, gridDim_00, gridDim_k1, gridDim_00, blockDim_00, blockDim_10_k0,
+        [](int M, int K, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_sequential_access_k0<<<gridDim, blockDim>>>(M, K, A, C, temp);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_sequential_access_k1<<<gridDim, blockDim, gridDim_y_k0*BLOCKSIZE_00 * sizeof(float)>>>(M, K, A, C, temp, gridDim_y_k0);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, A, C, temp, gridDim_y_k0);
+        },
+        "softmax_sequential_access"
     );
 }
