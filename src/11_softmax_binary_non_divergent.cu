@@ -54,7 +54,6 @@ __global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, fl
 
     if(threadIdx.y == 0)
         temp[x * gridDim.y + blockIdx.y] = As[localStartElem];
-        //temp[x * gridDim.y + blockIdx.y] = As[localStartElem+28];
 }
 
 // Kernel 1 does reduction across blocks (use a single y-block for this)
