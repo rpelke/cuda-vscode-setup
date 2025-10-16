@@ -231,8 +231,8 @@ void Benchmark::benchmark_softmax_kernel(int M, int K,
     free_device_mem();
 }
 
-void Benchmark::benchmark_binary_softmax_kernel(int M, int K,
-                                 dim3 gridDim, dim3 blockDim, float atol = 1e-2f) { //1027x1025
+void Benchmark::benchmark_triple_softmax_kernel(int M, int K,
+                                 dim3 gridDim, dim3 gridDim_k1, dim3 blockDim, softmax_init_kernel_t k0, softmax_followUp_kernel_t k1, softmax_followUp_kernel_t k2, float atol = 1e-2f) {
     copy_to_device(M, K, h_C_init);
 
     // Init and copy temp matrix
@@ -251,14 +251,10 @@ void Benchmark::benchmark_binary_softmax_kernel(int M, int K,
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    // Grid for k1 has only one column
-    dim3 gridDim_k1(gridDim.x, 1, gridDim.z);
-    int gridDim_y_k0 = CEIL_DIV(K, BLOCKSIZE_00);
-
     cudaEventRecord(start);
-    softmax_block_binary_k0<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp);
-    softmax_block_binary_k1<<<gridDim_k1, blockDim, gridDim_y_k0*BLOCKSIZE_00 * sizeof(float)>>>(M, K, d_A, d_C, d_temp, gridDim_y_k0);
-    softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, d_A, d_C, d_temp, gridDim_y_k0);
+    k0(M, K, d_A, d_C, d_temp, gridDim, blockDim);
+    k1(M, K, d_A, d_C, d_temp, gridDim.y, gridDim_k1, blockDim);
+    k2(M, K, d_A, d_C, d_temp, gridDim.y, gridDim, blockDim);
     cudaEventRecord(stop);
 
     // test transfer back
@@ -456,6 +452,19 @@ void Benchmark::start_softmax_benchmarks(int M, int K) {
 
     
     // 09: Test softmax with binary summation
-    benchmark_binary_softmax_kernel(
-        M, K, gridDim_00, blockDim_00);
+
+    // Grid for k1 has only one column
+    dim3 gridDim_k1(gridDim_00.x, 1, gridDim_00.z);
+    benchmark_triple_softmax_kernel(
+        M, K, gridDim_00, gridDim_k1, blockDim_00,
+        [](int M, int K, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_binary_k0<<<gridDim, blockDim>>>(M, K, A, C, temp);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_binary_k1<<<gridDim, blockDim, gridDim_y_k0*BLOCKSIZE_00 * sizeof(float)>>>(M, K, A, C, temp, gridDim_y_k0);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, A, C, temp, gridDim_y_k0);
+        }
+    );
 }

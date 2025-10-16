@@ -13,6 +13,14 @@ typedef std::function<void(int, int, const float *,
                            float *, dim3, dim3)>
     softmax_kernel_t;
 
+typedef std::function<void(int, int, const float *,
+                           float *, float *, dim3, dim3)>
+    softmax_init_kernel_t;
+
+typedef std::function<void(int, int, const float *,
+                           float *, float *, int, dim3, dim3)>
+    softmax_followUp_kernel_t;
+
 class Benchmark {
   public:
     Benchmark();
@@ -41,8 +49,8 @@ class Benchmark {
     void benchmark_softmax_kernel(int M, int K,
                           dim3 gridDim, dim3 blockDim, softmax_kernel_t launcher,
                           std::string kernel_name, float atol);
-    void benchmark_binary_softmax_kernel(int M, int K,
-                          dim3 gridDim, dim3 blockDim, float atol);
+    void benchmark_triple_softmax_kernel(int M, int K,
+                          dim3 gridDim, dim3 gridDim_k1, dim3 blockDim, softmax_init_kernel_t k0, softmax_followUp_kernel_t k1, softmax_followUp_kernel_t k2, float atol);
     double ms_to_gflops(int M, int K, int N, double ms);
     double ms_to_gflops(int M, int K, double ms);
 
