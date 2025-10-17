@@ -17,41 +17,41 @@ __global__ void softmax_block_binary_k0(int M, int N, const float *A, float *C, 
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
-    int globalStartElem = x*N+y+threadIdx.y;
-    int localStartElem = threadIdx.x * blockDim.y + 2*threadIdx.y;
+    int globalStartElem = y*N+x+threadIdx.x;
+    int localStartElem = threadIdx.y * blockDim.x + 2*threadIdx.x;
 
     // load A into shared mem
     __shared__ float As[BLOCKSIZE_10 * BLOCKSIZE_10];
 
     // Threads that exceed block should idle
-    if(2*threadIdx.y >= blockDim.y) return;
+    if(2*threadIdx.x >= blockDim.x) return;
 
     // Each thread loads it's start element and it's neighbour (if exists)
     As[localStartElem] = A[globalStartElem];
-    if(2*threadIdx.y+1 < blockDim.y)
+    if(2*threadIdx.x+1 < blockDim.x)
         As[localStartElem + 1] = A[globalStartElem+1];
 
     __syncthreads();
 
     // Init elements for softmax
-    As[localStartElem] = expf(As[localStartElem]);
+    As[localStartElem] = __expf(As[localStartElem]);
 
     __syncthreads();
 
     // Each thread calculates a partial sum
     int i = 1;
-    for (; i <= blockDim.y; i*=2) {
-        bool outOfBlock = 2*threadIdx.y+i >= blockDim.y;
-        bool outOfMat = y+threadIdx.y+i >= N;
-        if(threadIdx.y % i == 0 && !outOfBlock && !outOfMat) {
-            if (i == 1) As[localStartElem] += expf(As[localStartElem + i]);
+    for (; i <= blockDim.x; i*=2) {
+        bool outOfBlock = 2*threadIdx.x+i >= blockDim.x;
+        bool outOfMat = x+threadIdx.x+i >= N;
+        if(threadIdx.x % i == 0 && !outOfBlock && !outOfMat) {
+            if (i == 1) As[localStartElem] += __expf(As[localStartElem + i]);
             else As[localStartElem] += As[localStartElem + i];
         }
         __syncthreads();
     }
 
-    if(threadIdx.y == 0)
-        temp[x * gridDim.y + blockIdx.y] = As[localStartElem];
+    if(threadIdx.x == 0)
+        temp[y * gridDim.x + blockIdx.x] = As[localStartElem];
 
 }
 
