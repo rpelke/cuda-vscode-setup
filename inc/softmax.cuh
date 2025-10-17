@@ -23,4 +23,7 @@ __global__ void softmax_binary_non_divergent_k1(int M, int N, const float *A, fl
 __global__ void softmax_sequential_access_k0(int M, int N, const float *A, float *C, float *temp);
 __global__ void softmax_sequential_access_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_y_k0);
 
+__global__ void softmax_warp_shuffle_k0(int M, int N, const float *A, float *C, float *temp);
+__global__ void softmax_warp_shuffle_k1(int M, int N, const float *A, float *C, float *temp, int temp_N);
+
 #endif // SOFTMAX_KERNELS_CUH

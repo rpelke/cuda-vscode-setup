@@ -52,6 +52,6 @@ constexpr int BLOCKSIZE_10 = 32;
 
 // Kernel 11
 constexpr int BLOCKSIZE_11 = 32;
-constexpr int BLOCKSIZE_Y_11 = 64;
+constexpr int BLOCKSIZE_X_11 = 64;
 
 #endif // SGEMM_KERNEL_DIMENSION_CUH

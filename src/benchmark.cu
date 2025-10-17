@@ -276,6 +276,57 @@ void Benchmark::benchmark_triple_softmax_kernel(int M, int K,
     free_device_mem();
 }
 
+void Benchmark::benchmark_recursive_softmax_kernel(int M, int K, float atol = 1e-2f) {
+    copy_to_device(M, K, h_C_init);
+
+    // Init and copy temp matrix
+    float *d_temp;
+    std::vector<float> h_temp_init;
+    h_temp_init.resize(M * CEIL_DIV(K, 32));
+    for (int i = 0; i < M * CEIL_DIV(K, 32); ++i) {
+        h_temp_init[i] = static_cast<float>(rand()) / RAND_MAX;
+    }
+    CUDA_CHECK(cudaMalloc(&d_temp, M * CEIL_DIV(K, 32) * sizeof(float)));
+    CUDA_CHECK(cudaMemcpy(d_temp, h_temp_init.data(),
+                          h_temp_init.size() * sizeof(float),
+                          cudaMemcpyHostToDevice));
+
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    dim3 blockDim_k0(32, 32, 1);
+    dim3 gridDim_k0(CEIL_DIV(K, 32), CEIL_DIV(M, 32), 1);
+    dim3 gridDim_k1 = gridDim_k0;
+    int K_1 = K;
+
+    cudaEventRecord(start);
+    softmax_warp_shuffle_k0<<<gridDim_k0, blockDim_k0>>>(M, K, d_A, d_C, d_temp);
+    while (gridDim_k1.x > 1) {
+        gridDim_k1.x = CEIL_DIV(gridDim_k1.x, 32);
+        K_1 = CEIL_DIV(K_1, 32);
+        //std::cout << "Executing k1 with width of " << K_1 << " and gridDim.x of " << gridDim_k1.x << std::endl;
+        softmax_warp_shuffle_k1<<<gridDim_k1, blockDim_k0>>>(M, K_1, d_A, d_C, d_temp, gridDim_k0.x);
+    }
+    softmax_block_binary_k2<<<gridDim_k0, blockDim_k0>>>(M, K, d_A, d_C, d_temp, gridDim_k0.x);
+    cudaEventRecord(stop);
+
+    // Free temp matrix
+    cudaFree(d_temp);
+
+    cudaError_t err = cudaEventSynchronize(stop);
+    if (err != cudaSuccess)
+        printf("Kernel error: %s\n", cudaGetErrorString(err));
+
+    float kernel_ms;
+    cudaEventElapsedTime(&kernel_ms, start, stop);
+    float kernel_gflops = ms_to_gflops(M, K, kernel_ms);
+    copy_results_to_host(M, K, h_C);
+    validate_results(h_C, "recursive warp_shuffle", M, K, 1e-2f);
+    print_results(kernel_ms, kernel_gflops, "recursive warp_shuffle");
+    free_device_mem();
+}
+
 void Benchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
     // Initialize matrices
     init_matrices(M, K, N);
@@ -499,4 +550,21 @@ void Benchmark::start_softmax_benchmarks(int M, int K) {
         },
         "softmax_sequential_access"
     );*/
+
+    // 12: Test softmax with warp shuffle
+    benchmark_triple_softmax_kernel(
+        M, K, gridDim_00, gridDim_k1, gridDim_00, blockDim_00, blockDim_00,
+        [](int M, int K, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_warp_shuffle_k0<<<gridDim, blockDim>>>(M, K, A, C, temp);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_binary_non_divergent_k1<<<gridDim, blockDim, gridDim_y_k0*BLOCKSIZE_00 * sizeof(float)>>>(M, K, A, C, temp, gridDim_y_k0);
+        },
+        [](int M, int K, const float *A, float *C, float *temp, int gridDim_y_k0, dim3 gridDim, dim3 blockDim) -> void {
+            softmax_block_binary_k2<<<gridDim, blockDim>>>(M, K, A, C, temp, gridDim_y_k0);
+        },
+        "softmax_warp_shuffle"
+    );
+
+    benchmark_recursive_softmax_kernel(M, K);
 }
