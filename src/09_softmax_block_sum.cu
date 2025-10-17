@@ -14,12 +14,12 @@ __global__ void softmax_block_sum(int M, int N, const float *A, float *C) {
 
     // Each thread calculates a partial sum
     for (int col = N / blockDim.y * threadIdx.y; col < min(N / blockDim.y * (threadIdx.y+1), N); col++) {
-        partialSum += expf(A[x * N + col]);
+        partialSum += __expf(A[x * N + col]);
     }
 
     // Add has to be atomic to avoid race condition
     atomicAdd(&sums[threadIdx.x], partialSum);
     __syncthreads();
 
-    C[x * N + y] = expf(A[x * N + y]) / sums[threadIdx.x];
+    C[x * N + y] = __expf(A[x * N + y]) / sums[threadIdx.x];
 }
