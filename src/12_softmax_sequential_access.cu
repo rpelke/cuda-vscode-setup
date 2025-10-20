@@ -36,7 +36,7 @@ __global__ void softmax_sequential_access_k0(int M, int N, const float *A, float
     __syncthreads();
 
     // Init elements for softmax
-    As[localStartElem] = expf(As[localStartElem]);
+    As[localStartElem] = __expf(As[localStartElem]);
 
     __syncthreads();
 
@@ -48,7 +48,7 @@ __global__ void softmax_sequential_access_k0(int M, int N, const float *A, float
         bool outOfMat = threadIdx.x*BLOCKSIZE_10+threadIdx.y+i >= N;
 
         if(threadIdx.y < i && !outOfBlock && !outOfMat) {
-            if (i == 1) As[threadIdx.x*BLOCKSIZE_10+threadIdx.y] += expf(As[threadIdx.x*BLOCKSIZE_10+threadIdx.y+i]);
+            if (i == 1) As[threadIdx.x*BLOCKSIZE_10+threadIdx.y] += __expf(As[threadIdx.x*BLOCKSIZE_10+threadIdx.y+i]);
             else As[threadIdx.x*BLOCKSIZE_10+threadIdx.y] += As[threadIdx.x*BLOCKSIZE_10+threadIdx.y+i];
         }
         __syncthreads();
