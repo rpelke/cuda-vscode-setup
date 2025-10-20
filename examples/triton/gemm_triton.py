@@ -112,30 +112,45 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     tl.assume(pid_m >= 0)
     tl.assume(pid_n >= 0)
 
+    # Row indices in tile (pid_m, pid_n) in A and C
     offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
+    # Column indices in tile (pid_m, pid_n) in B and C
     offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
+    # Relative indices in K dimension
     offs_k = tl.arange(0, BLOCK_SIZE_K)
+
+    # BLOCK_SIZE_M × BLOCK_SIZE_K matrix with pointers to the A-tile elements
     a_ptrs = a_ptr + (offs_am[:, None] * K + offs_k[None, :])
+    # BLOCK_SIZE_K × BLOCK_SIZE_N matrix with pointers to the B-tile elements
     b_ptrs = b_ptr + (offs_k[:, None] * N + offs_bn[None, :])
 
+    # Initial BLOCK_SIZE_M × BLOCK_SIZE_N tile that this program instance will compute
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
+
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
+        # Load A and B tiles from global memory
+        # Use masks to avoid out-of-bounds accesses
         a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_SIZE_K, other=0.0)
         b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_SIZE_K, other=0.0)
+        # accumulator += a @ b
         accumulator = tl.dot(a, b, accumulator)
+        # Update pointers to the next A and B tiles
         a_ptrs += BLOCK_SIZE_K
         b_ptrs += BLOCK_SIZE_K * N
 
     c = accumulator
 
+    # Row and column indices of the C-tile
     offs_cm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
     offs_cn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    # BLOCK_SIZE_M × BLOCK_SIZE_N matrix with pointers to the C-tile elements
     c_ptrs = c_ptr + (offs_cm[:, None] * N + offs_cn[None, :])
+    # Mask to avoid out-of-bounds accesses
     c_mask = (offs_cm[:, None] < M) & (offs_cn[None, :] < N)
     tl.store(c_ptrs, c, mask=c_mask)
 
 
-def matmul(a, b):
+def check_and_launch_matmul(a, b):
     assert a.shape[1] == b.shape[0], "Incompatible dimensions"
     assert a.is_contiguous(), "Matrix A must be contiguous"
     assert b.is_contiguous(), "Matrix B must be contiguous"
@@ -160,7 +175,7 @@ def matmul(a, b):
 torch.manual_seed(0)
 a = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
 b = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
-triton_output = matmul(a, b)
+triton_output = check_and_launch_matmul(a, b)
 torch_output = torch.matmul(a, b)
 
 # Compare outputs
