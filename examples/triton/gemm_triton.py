@@ -6,75 +6,39 @@ DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 def get_cuda_autotune_config():
+    BK = 32
+    # (BM, BN, num_warps, num_stages, swizzle_n)
+    specs = [
+        (128, 128, 4, 4, 8),
+        (128, 64, 4, 4, 8),
+        (64, 128, 4, 4, 8),
+        (64, 64, 2, 5, 8),
+        (128, 256, 8, 3, 8),
+        (256, 128, 8, 3, 8),
+        (128, 32, 4, 4, 8),
+        (32, 128, 4, 4, 8),
+        (128, 128, 4, 4, 4),
+        (128, 64, 4, 4, 4),
+        (64, 128, 4, 4, 4),
+        (64, 64, 2, 5, 4),
+        (128, 256, 8, 3, 4),
+        (256, 128, 8, 3, 4),
+        (128, 32, 4, 4, 4),
+        (32, 128, 4, 4, 4),
+    ]
     return [
         triton.Config({
-            'BLOCK_SIZE_M': 128,
-            'BLOCK_SIZE_N': 128,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
+            'BLOCK_SIZE_M': bm,
+            'BLOCK_SIZE_N': bn,
+            'BLOCK_SIZE_K': BK,
+            'SWIZZLE_N': sw
         },
-                      num_stages=4,
-                      num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE_M': 128,
-            'BLOCK_SIZE_N': 64,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=4,
-                      num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE_M': 64,
-            'BLOCK_SIZE_N': 128,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=4,
-                      num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE_M': 64,
-            'BLOCK_SIZE_N': 64,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=5,
-                      num_warps=2),
-        triton.Config({
-            'BLOCK_SIZE_M': 128,
-            'BLOCK_SIZE_N': 256,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=3,
-                      num_warps=8),
-        triton.Config({
-            'BLOCK_SIZE_M': 256,
-            'BLOCK_SIZE_N': 128,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=3,
-                      num_warps=8),
-        triton.Config({
-            'BLOCK_SIZE_M': 128,
-            'BLOCK_SIZE_N': 32,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=4,
-                      num_warps=4),
-        triton.Config({
-            'BLOCK_SIZE_M': 32,
-            'BLOCK_SIZE_N': 128,
-            'BLOCK_SIZE_K': 32,
-            'SWIZZLE_N': 8
-        },
-                      num_stages=4,
-                      num_warps=4),
+                      num_warps=warps,
+                      num_stages=stages) for (bm, bn, warps, stages, sw) in specs
     ]
 
 
-@triton.autotune(configs=get_cuda_autotune_config(), key=['M', 'N', 'K'])
+@triton.autotune(configs=get_cuda_autotune_config(), key=['M', 'N', 'K'], cache_results=True)
 @triton.jit
 def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
                   BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_N: tl.constexpr):
