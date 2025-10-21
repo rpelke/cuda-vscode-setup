@@ -124,13 +124,13 @@ def mvm_kernel(a_ptr, b_ptr, c_ptr, M, N, BLOCK_SIZE_M: tl.constexpr,
     pid_m = tl.program_id(axis=1)
     pid_n = tl.program_id(axis=0)
 
-    offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
-    offs_k = tl.arange(0, BLOCK_SIZE_K)
-    a_ptrs = a_ptr + (offs_am[:, None] * N + offs_k[None, :])
-    b_ptrs = b_ptr + (offs_k[:, None])
+    offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M # modulo prevents overflow
+    offs_n = tl.arange(0, BLOCK_SIZE_N)
+    a_ptrs = a_ptr + (offs_am[:, None] * N + offs_n[None, :])
+    b_ptrs = b_ptr + (pid_n * BLOCK_SIZE_N + offs_n[:, None])
     
     accumulator = tl.zeros((BLOCK_SIZE_M, 1), dtype=tl.float32)
-    for k in range(0, tl.cdiv(N, BLOCK_SIZE_K)):
+    for k in range(0, tl.cdiv(N, BLOCK_SIZE_N)):
         a = tl.load(a_ptrs, mask=offs_k[None, :] < N - k * BLOCK_SIZE_K, other=0.0)
         b = tl.load(b_ptrs, mask=offs_k[:, None] < N - k * BLOCK_SIZE_K, other=0.0)
         accumulator = tl.dot(a, b, accumulator)
