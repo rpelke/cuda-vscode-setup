@@ -112,7 +112,7 @@ For compute-bound applications, a high occupancy is not so important (sometimes 
 
 ### L2-Cache Reuse using Thread-Group ID Swizzling
 
-When we take a look at the kernel launch in [gemm_triton.py](gemm_triton.py), we see that a 1D grid is created.
+When we take a look at the kernel launch in [gemm_kernel.py](src/gemm_kernel.py), we see that a 1D grid is created.
 After that, the so-called program IDs (`pid`) are used to calculate the block indices in a 2D grid (`pid_m`, `pid_n`):
 
 ```Python
@@ -184,7 +184,7 @@ However, this concept still brings performance improvements because it has been 
 ### Implement the Core Functiionality
 Instead of programming what a single thread does (as in CUDA C++), in Triton, you program what the entire tile does and express its work with matrix-style operations.
 
-As shown in [gemm_trition.py](gemm_triton.py):
+As shown in [gemm_kernel.py](src/gemm_kernel.py):
 1. Build index grids (`offs_am`, `offs_bn`, `offs_k`) and pointer matrices for A and B.
 1. `tl.load` the A and B tile blocks.
 1. Compute with `tl.dot`, accumulating into the tile-sized `accumulator`.

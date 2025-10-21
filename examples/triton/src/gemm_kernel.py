@@ -2,8 +2,6 @@ import torch
 import triton
 import triton.language as tl
 
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
-
 
 def get_cuda_autotune_config():
     BK = 32
@@ -133,17 +131,3 @@ def check_and_launch_matmul(a, b):
         triton.cdiv(N, META['BLOCK_SIZE_N']), )
     matmul_kernel[grid](a, b, c, M, N, K)
     return c
-
-
-# Test
-torch.manual_seed(0)
-a = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
-b = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
-triton_output = check_and_launch_matmul(a, b)
-torch_output = torch.matmul(a, b)
-
-# Compare outputs
-if torch.allclose(triton_output, torch_output, atol=1e-4, rtol=1e-5):
-    print("Test passed! ✅")
-else:
-    print("Test failed! ❌")
