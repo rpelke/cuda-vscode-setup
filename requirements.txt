@@ -1,5 +1,5 @@
-torch
-brevitas
-pybind11
-yapf
-triton
+torch==2.8.0
+brevitas==0.12.1
+pybind11==3.0.1
+yapf==0.43.0
+triton==3.4.0
