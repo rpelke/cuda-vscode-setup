@@ -134,11 +134,12 @@ However, with the 1D launch we instead have to determine them using some calcula
 ```Python
 num_pid_m = tl.cdiv(M, BLOCK_SIZE_M)
 num_pid_n = tl.cdiv(N, BLOCK_SIZE_N)
-GROUP_SIZE = SWIZZLE_N * num_pid_n
+GROUP_SIZE = SWIZZLE_M * num_pid_n
 group_id = pid // GROUP_SIZE
-group_offs = SWIZZLE_N * group_id
-pid_m = (pid % SWIZZLE_N) + group_offs
-group_size_m = min(num_pid_m - group_offs, SWIZZLE_N)
+SWIZZLE_M_GRP = min(SWIZZLE_M, (M - group_id * SWIZZLE_M * BLOCK_SIZE_M) // BLOCK_SIZE_M)
+group_offs = SWIZZLE_M * group_id
+pid_m = ((pid % SWIZZLE_M_GRP) + group_offs)
+group_size_m = min(num_pid_m - group_offs, SWIZZLE_M)
 pid_n = (pid % GROUP_SIZE) // group_size_m
 ```
 
@@ -175,7 +176,7 @@ To implement this (i.e., to get the code snippet shown above), we need to think 
 
 On the left side, we can see the desired block dispatch order.
 On the right side, we have a normal 2D grid.
-`SWIZZLE_N` is an optimization parameter.
+`SWIZZLE_M` is an optimization parameter.
 It is important to note that we cannot guarantee that the blocks are dispatched in the order of their IDs, i.e., 0 → 1 → 2 → 3 …
 NVIDIA specifies that blocks must be independent. This means, in principle, they can be executed in any order.
 However, this concept still brings performance improvements because it has been empirically observed that the block dispatcher frequently schedules blocks from roughly ascending ID ranges (though this is not guaranteed) [[source](https://forums.developer.nvidia.com/t/what-is-the-execution-order-of-cuda-blocks/298502)].

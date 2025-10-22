@@ -5,7 +5,7 @@ import triton.language as tl
 
 def get_cuda_autotune_config():
     BK = 32
-    # (BM, BN, num_warps, num_stages, swizzle_n)
+    # (BM, BN, num_warps, num_stages, swizzle_m)
     specs = [
         (128, 128, 4, 4, 8),
         (128, 64, 4, 4, 8),
@@ -29,17 +29,33 @@ def get_cuda_autotune_config():
             'BLOCK_SIZE_M': bm,
             'BLOCK_SIZE_N': bn,
             'BLOCK_SIZE_K': BK,
-            'SWIZZLE_N': sw
+            'SWIZZLE_M': sw
         },
                       num_warps=warps,
                       num_stages=stages) for (bm, bn, warps, stages, sw) in specs
     ]
 
 
-@triton.autotune(configs=get_cuda_autotune_config(), key=['M', 'N', 'K'], cache_results=True)
+def validate_results(*args, **kwargs):
+    a = args[0]['a_ptr']
+    b = args[0]['b_ptr']
+    c = args[0]['c_ptr']
+    torch.cuda.synchronize(c.device)
+    triton_output = c
+    torch_output = torch.matmul(a, b)
+    if not torch.allclose(triton_output, torch_output, atol=1e-4, rtol=1e-5):
+        print("Post hook: Test failed! ❌")
+    else:
+        print("Post hook: Test passed! ✅")
+
+
+@triton.autotune(configs=get_cuda_autotune_config(),
+                 key=['M', 'N', 'K'],
+                 post_hook=validate_results,
+                 cache_results=True)
 @triton.jit
 def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
-                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_N: tl.constexpr):
+                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_M: tl.constexpr):
     """
     C = A x B
     A: (M, K) float32
@@ -64,11 +80,13 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     # 1  |  1   3   5   7   9  11    to    1  | 1,0  1,1  1,2  1,3  1,4  1,5
     # 2  | 12  14  16  18  20  22          2  | 2,0  2,1  2,2  2,3  2,4  2,5
     # 3  | 13  15  17  19  21  23          3  | 3,0  3,1  3,2  3,3  3,4  3,5
-    GROUP_SIZE = SWIZZLE_N * num_pid_n
+    GROUP_SIZE = SWIZZLE_M * num_pid_n
     group_id = pid // GROUP_SIZE
-    group_offs = SWIZZLE_N * group_id
-    pid_m = (pid % SWIZZLE_N) + group_offs
-    group_size_m = min(num_pid_m - group_offs, SWIZZLE_N)
+    # Decrease swizzle in case M % (SWIZZLE_M * BLOCK_SIZE_M) != 0
+    SWIZZLE_M_GRP = min(SWIZZLE_M, (M - group_id * SWIZZLE_M * BLOCK_SIZE_M) // BLOCK_SIZE_M)
+    group_offs = SWIZZLE_M * group_id
+    pid_m = ((pid % SWIZZLE_M_GRP) + group_offs)
+    group_size_m = min(num_pid_m - group_offs, SWIZZLE_M)
     pid_n = (pid % GROUP_SIZE) // group_size_m
 
     tl.assume(pid_m >= 0)
@@ -92,8 +110,12 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
         # Load A and B tiles from global memory
         # Use masks to avoid out-of-bounds accesses
-        a = tl.load(a_ptrs, mask=offs_k[None, :] < K - k * BLOCK_SIZE_K, other=0.0)
-        b = tl.load(b_ptrs, mask=offs_k[:, None] < K - k * BLOCK_SIZE_K, other=0.0)
+        mask_k = offs_k[None, :] < K - k * BLOCK_SIZE_K
+        mask_m = offs_am[:, None] >= pid_m * BLOCK_SIZE_M
+        a = tl.load(a_ptrs, mask=mask_m & mask_k, other=0.0)
+        mask_k = offs_k[:, None] < K - k * BLOCK_SIZE_K
+        mask_n = offs_bn[None, :] >= pid_n * BLOCK_SIZE_N
+        b = tl.load(b_ptrs, mask=mask_k & mask_n, other=0.0)
         # accumulator += a @ b
         accumulator = tl.dot(a, b, accumulator)
         # Update pointers to the next A and B tiles

@@ -7,8 +7,8 @@ DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 # Test
 torch.manual_seed(0)
-a = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
-b = (torch.rand((512, 512), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
+a = (torch.rand((1280, 1280), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
+b = (torch.rand((1280, 1280), device=DEVICE, dtype=torch.float32) - 0.5).contiguous()
 triton_output = check_and_launch_matmul(a, b)
 torch_output = torch.matmul(a, b)
 

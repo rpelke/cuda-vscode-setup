@@ -11,9 +11,10 @@ def _get_autotuner_obj(kernel):
 def print_tuning_stats(tuner: Autotuner):
     at = _get_autotuner_obj(tuner)
     if at is None:
-        print("Autotuner not found.")
+        raise Exception("Autotuner not found.")
+    if at.cache_results is False:
+        print("No tuning results cached.")
     else:
-        print("cache_results:", getattr(at, "cache_results", None))
         print("Configs:", len(at.configs))
         print("Tuning keys:", list(at.cache.keys()))
         print("--- Best config per key ---")
