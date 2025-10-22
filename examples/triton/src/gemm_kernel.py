@@ -1,3 +1,4 @@
+import math
 import torch
 import triton
 import triton.language as tl
@@ -49,8 +50,24 @@ def validate_results(*args, **kwargs):
         print("Post hook: Test passed! ✅")
 
 
+# Filter configurations depending on the matrix sizes
+def _prune_configs(configs, named_args, **kwargs):
+    M, N, K = named_args['M'], named_args['N'], named_args['K']
+    pruned_configs = [
+        c for c in configs if \
+            (c.kwargs['BLOCK_SIZE_M']<=M) and \
+            (c.kwargs['BLOCK_SIZE_N']<=N) and \
+            (c.kwargs['BLOCK_SIZE_K']<=K) and \
+            (c.kwargs['SWIZZLE_M'] <= math.ceil(M / c.kwargs['BLOCK_SIZE_M']))
+    ]
+    if len(pruned_configs) == 0:
+        raise Exception("No valid configurations found for the given matrix size.")
+    return pruned_configs
+
+
 @triton.autotune(configs=get_cuda_autotune_config(),
                  key=['M', 'N', 'K'],
+                 prune_configs_by={"early_config_prune": _prune_configs},
                  post_hook=validate_results,
                  cache_results=True)
 @triton.jit
@@ -83,7 +100,7 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     GROUP_SIZE = SWIZZLE_M * num_pid_n
     group_id = pid // GROUP_SIZE
     # Decrease swizzle in case M % (SWIZZLE_M * BLOCK_SIZE_M) != 0
-    SWIZZLE_M_GRP = min(SWIZZLE_M, (M - group_id * SWIZZLE_M * BLOCK_SIZE_M) // BLOCK_SIZE_M)
+    SWIZZLE_M_GRP = min(SWIZZLE_M, tl.cdiv((M - group_id * SWIZZLE_M * BLOCK_SIZE_M), BLOCK_SIZE_M))
     group_offs = SWIZZLE_M * group_id
     pid_m = ((pid % SWIZZLE_M_GRP) + group_offs)
     group_size_m = min(num_pid_m - group_offs, SWIZZLE_M)
