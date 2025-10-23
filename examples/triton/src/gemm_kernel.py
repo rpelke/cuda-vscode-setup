@@ -46,8 +46,6 @@ def validate_results(*args, **kwargs):
     torch_output = torch.matmul(a, b)
     if not torch.allclose(triton_output, torch_output, atol=1e-4, rtol=1e-5):
         print("Post hook: Test failed! ❌")
-    else:
-        print("Post hook: Test passed! ✅")
 
 
 # Filter configurations depending on the matrix sizes

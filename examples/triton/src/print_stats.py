@@ -26,15 +26,15 @@ def print_tuning_stats(tuner: Autotuner):
         ]
         data = []
 
-        for cfg in at.configs:
-            if cfg in at.configs_timings:
-                data.append([
-                    cfg.kwargs['BLOCK_SIZE_M'], cfg.kwargs['BLOCK_SIZE_N'],
-                    cfg.kwargs['BLOCK_SIZE_K'], cfg.kwargs['SWIZZLE_M'], cfg.num_warps,
-                    cfg.num_ctas, cfg.num_stages,
-                    str(cfg.maxnreg),
-                    str(cfg.pre_hook),
-                    str(cfg.ir_override), f"{float(np.mean(at.configs_timings[cfg])):8.3f}"
-                ])
+        sorted_timings = sorted(at.configs_timings.items(), key=lambda x: np.mean(x[1]))
+
+        for cfg, times in sorted_timings:
+            data.append([
+                cfg.kwargs['BLOCK_SIZE_M'], cfg.kwargs['BLOCK_SIZE_N'], cfg.kwargs['BLOCK_SIZE_K'],
+                cfg.kwargs['SWIZZLE_M'], cfg.num_warps, cfg.num_ctas, cfg.num_stages,
+                str(cfg.maxnreg),
+                str(cfg.pre_hook),
+                str(cfg.ir_override), f"{float(np.mean(times)):8.3f}"
+            ])
 
         print(tabulate(data, headers=header, tablefmt="rounded_grid"))

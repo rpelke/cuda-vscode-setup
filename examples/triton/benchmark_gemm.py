@@ -1,6 +1,7 @@
 from src.gemm_kernel import check_and_launch_matmul, matmul_kernel
 import torch
 import triton
+from tabulate import tabulate
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
@@ -40,10 +41,8 @@ def rand_mat(m, k, dtype=torch.float32):
 
 
 def bench_square(min_sz=128, max_sz=2048, step=128, dtype=torch.float32, warmup=5, iters=20):
-    print(
-        f"{'M':>5} {'N':>5} {'K':>5} | {'Tri ms':>9} {'Torch ms':>9} | {'Tri GF/s':>10} {'Torch GF/s':>11} | {'Speedup':>8} {'OK':>3}"
-    )
-    print("-" * 89)
+    header = ["M", "N", "K", "Triton ms", "Torch ms", "Triton GF/s", "Torch GF/s", "Speedup", "OK"]
+    data = []
     for s in range(min_sz, max_sz + 1, step):
         M = N = K = s
         a = rand_mat(M, K, dtype)
@@ -65,9 +64,11 @@ def bench_square(min_sz=128, max_sz=2048, step=128, dtype=torch.float32, warmup=
         torch_gf = gflops(M, N, K, torch_ms)
         speedup = torch_ms / tri_ms if tri_ms > 0 else float('nan')
 
-        print(
-            f"{M:5d} {N:5d} {K:5d} | {tri_ms:9.3f} {torch_ms:9.3f} | {tri_gf:10.1f} {torch_gf:11.1f} | {speedup:8.3f} {'✅' if ok else '❌':>3}"
-        )
+        data.append([
+            M, N, K, f"{tri_ms:9.3f}", f"{torch_ms:9.3f}", f"{tri_gf:10.1f}", f"{torch_gf:11.1f}",
+            f"{speedup:8.3f}", '✅' if ok else '❌'
+        ])
+    print(tabulate(data, headers=header, tablefmt="rounded_grid"))
 
 
 if __name__ == "__main__":
