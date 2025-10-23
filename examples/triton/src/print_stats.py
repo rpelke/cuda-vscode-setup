@@ -3,15 +3,15 @@ import numpy as np
 from tabulate import tabulate
 
 
-def _get_autotuner_obj(kernel):
-    fn = kernel
+def get_autotuner_obj(tuner: Autotuner):
+    fn = tuner
     while hasattr(fn, "fn") and not isinstance(fn, Autotuner):
         fn = fn.fn
     return fn if isinstance(fn, Autotuner) else None
 
 
 def print_tuning_stats(tuner: Autotuner):
-    at = _get_autotuner_obj(tuner)
+    at = get_autotuner_obj(tuner)
     if at is None:
         raise Exception("Autotuner not found.")
     if at.cache_results is False:
