@@ -21,5 +21,8 @@ def print_tuning_stats(tuner: Autotuner):
         for key, cfg in at.cache.items():
             print(key, cfg.__dict__)
         print("--- Timings per config ---")
-        for cfg, t in at.configs_timings.items():
-            print(cfg.__dict__, "->", t, "ms")
+        for cfg, t in at.configs_timings.items():           
+            if cfg == list(at.cache.items())[0][1]:
+                print('\033[92m' + str(cfg.__dict__), "->", t, "ms")
+            else:
+                print('\033[37m' + str(cfg.__dict__), "->", t, "ms")
