@@ -8,8 +8,10 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "env": {
-                "TRITON_INTERPRET": "1"  // Set to "1" to debug (interpret) Triton code
-            }
+                "TRITON_INTERPRET": "0", // Set to "1" to debug (interpret) Triton code
+                "TRITON_PRINT_AUTOTUNING": "1" // Set to "1" to print autotuning information
+            },
+            "justMyCode": false
         },
         {
             "name": "Run kernel",

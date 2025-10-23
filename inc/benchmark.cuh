@@ -56,7 +56,7 @@ class Benchmark {
     double ms_to_gflops(int M, int K, double ms);
 
     std::vector<float> h_A, h_B, h_C, h_C_init, h_C_cpu, h_C_cublas;
-    float *d_A, *d_B, *d_C;
+    float *d_A, *d_B, *d_C, *d_C_init_helper;
 };
 
 #endif // BENCHMARK_CUH

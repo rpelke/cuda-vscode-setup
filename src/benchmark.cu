@@ -22,7 +22,8 @@ void print_results(double ms, double gflops, std::string name) {
     std::cout << name << ": " << ms << " ms, " << gflops << " GFLOPS\n";
 }
 
-Benchmark::Benchmark() : d_A(nullptr), d_B(nullptr), d_C(nullptr) {}
+Benchmark::Benchmark() :
+    d_A(nullptr), d_B(nullptr), d_C(nullptr), d_C_init_helper(nullptr) {}
 
 void Benchmark::init_matrices(int M, int K, int N) {
     h_A.resize(M * K);
@@ -64,12 +65,16 @@ void Benchmark::copy_to_device(int M, int K, int N,
     CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_C_init_helper, M * N * sizeof(float)));
 
     CUDA_CHECK(cudaMemcpy(d_A, h_A.data(), h_A.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_B, h_B.data(), h_B.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_C, res_vector.data(),
+                          res_vector.size() * sizeof(float),
+                          cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_C_init_helper, res_vector.data(),
                           res_vector.size() * sizeof(float),
                           cudaMemcpyHostToDevice));
 }
@@ -99,6 +104,8 @@ void Benchmark::free_device_mem() {
     d_B = nullptr;
     cudaFree(d_C);
     d_C = nullptr;
+    cudaFree(d_C_init_helper);
+    d_C_init_helper = nullptr;
 }
 
 bool Benchmark::validate_results(std::vector<float> &C_test,
@@ -162,22 +169,55 @@ double Benchmark::benchmark_cublas(int M, int K, int N, float alpha,
     cublasHandle_t handle;
     cublasCreate(&handle);
 
-    cublasSetMathMode(handle, CUBLAS_TENSOR_OP_MATH);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+    cublasSetStream(handle, stream);
+
+    cublasSetMathMode(handle, CUBLAS_TF32_TENSOR_OP_MATH);
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
 
-    cudaEventRecord(start);
-    cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
-                 CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F, N,
-                 CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
+    const int warmup = 10;
+    const int iters = 10;
 
+    auto resetC = [&]() {
+        CUDA_CHECK(cudaMemcpyAsync(d_C, d_C_init_helper, M * N * sizeof(float),
+                                   cudaMemcpyDeviceToDevice, stream));
+    };
+
+    // Warm-up
+    for (int i = 0; i < warmup; ++i) {
+        resetC();
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
+                     CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F,
+                     N, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    }
+
+    double total_ms = 0.0;
+
+    // Benchmarking
+    for (int i = 0; i < iters; ++i) {
+        resetC();
+
+        CUDA_CHECK(cudaEventRecord(start, stream));
+        cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
+                     CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F,
+                     N, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+        CUDA_CHECK(cudaEventRecord(stop, stream));
+        CUDA_CHECK(cudaEventSynchronize(stop));
+
+        float ms = 0.0f;
+        CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));
+        total_ms += ms;
+    }
+
+    CUDA_CHECK(cudaEventDestroy(start));
+    CUDA_CHECK(cudaEventDestroy(stop));
+    CUDA_CHECK(cudaStreamDestroy(stream));
     cublasDestroy(handle);
-    float cublas_ms;
-    cudaEventElapsedTime(&cublas_ms, start, stop);
-    return cublas_ms;
+
+    return total_ms / iters;
 }
 
 void Benchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,

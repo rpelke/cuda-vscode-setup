@@ -1,8 +1,10 @@
 # Writing CUDA Kernels - A VSCode Setup & Tutorial
 This repository is designed to simplify your introduction to CUDA kernel development by providing a ready-to-use VSCode setup. With it, you can both profile your kernels and debug them directly from the VSCode editor, so you can dive into online tutorials immediately without wrestling with your toolchain first.
-- Build system: [CMake](CMakeLists.txt)
-- Example kernels: simple GEMM operations, inspired by the tutorials from [siboehm](https://siboehm.com/articles/22/CUDA-MMM) and [leimao](https://leimao.github.io/article/CUDA-Matrix-Multiplication-Optimization/).
-- Tested with [CUDA 13.0](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html)
+- Build system: [CMake](CMakeLists.txt) (tested with version 3.28.3)
+- Tested with [CUDA 13.0](https://docs.nvidia.com/cuda/cuda-toolkit-release-notes/index.html) and [Python 3.12.3](https://www.python.org/downloads/release/python-3123/)
+
+This repository contains different CUDA implementations of an `sgemm` kernel, inspired by the tutorials from [siboehm](https://siboehm.com/articles/22/CUDA-MMM) and [leimao](https://leimao.github.io/article/CUDA-Matrix-Multiplication-Optimization/). The [triton folder](examples/triton/) contains examples of how to tune a `gemm` kernel with Triton.
+The [pybind folder](examples/pybind/) contains an example of how to invoke a CUDA kernel written in C++ from Python.
 
 
 ## Build sgemm kernels in VSCode
@@ -11,7 +13,7 @@ This repository is designed to simplify your introduction to CUDA kernel develop
     - C/C++ & C/C++ Extension Pack
     - CMake & CMake Tools
     - (Kernel profiling) Nsight Visual Studio Code Edition
-    - (If Python is used) Python & Python Extension Pack
+    - (For Python examples only) Python & Python Extension Pack
     - Clang-format (by X. Hellauer) for C++ formatting
     - Yapf for Python formatting
 
@@ -106,7 +108,7 @@ More information can be found [here](https://triton-lang.org/main/programming-gu
 
 ## Implementations included
 
-The following sgemm implementations are included in this repository:
+The following `sgemm` implementations are included in this repository:
 ____
 ### Simple sgemm
 <p align="center">
