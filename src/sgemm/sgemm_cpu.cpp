@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 
 void cpu_sgemm(int M, int N, int K, float alpha, const std::vector<float> &A,
                const std::vector<float> &B, float beta, std::vector<float> &C) {

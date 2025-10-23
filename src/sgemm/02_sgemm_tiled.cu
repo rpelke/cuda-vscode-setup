@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 
 // Tiled SGEMM kernel: C = alpha * A @ B + beta * C
 __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,

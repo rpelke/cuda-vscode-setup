@@ -1,4 +1,4 @@
-#include "softmax.cuh"
+#include "softmax/softmax.cuh"
 
 // row-wise softmax
 __global__ void softmax_simple(int M, int N, const float *A, float *C) {

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "sgemm_kernel_dimension.cuh"
+#include "softmax_kernel_dimensions.cuh"
 
 void cpu_softmax(int M, int N, const std::vector<float> &A, std::vector<float> &C);
 

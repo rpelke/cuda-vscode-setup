@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 
 __global__ void sgemm_simple(int M, int N, int K, float alpha, const float *A,
                              const float *B, float beta, float *C) {

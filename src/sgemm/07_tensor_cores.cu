@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 #include <cstdio>
 #include <cuda_fp16.h>
 #include <mma.h>

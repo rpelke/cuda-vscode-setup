@@ -1,4 +1,4 @@
-#include "softmax.cuh"
+#include "softmax/softmax.cuh"
 #include <cmath>
 #include <iostream>
 

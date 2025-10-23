@@ -28,10 +28,6 @@ class Benchmark {
     Benchmark(const Benchmark &) = delete;
     virtual ~Benchmark() { free_device_mem(); }
 
-    void start_benchmarks(int M, int K, int N, float alpha, float beta);
-
-    void start_softmax_benchmarks(int M, int K);
-
     double benchmark_cublas(std::function<cublasStatus_t(cublasHandle_t)> cublasFunc, std::function<void(cudaStream_t)> resetResultTensor, int warmup = 10, int iters = 10);
 
     // GEMM-like init
@@ -50,25 +46,12 @@ class Benchmark {
     void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K);
     void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K);
 
-  private:
-    void copy_results_to_host(int M, int N, std::vector<float> &res_vector);
+  protected:
+    void print_results(double ms, double gflops, std::string name);
+    void copy_results_to_host(float *&d_C, int M, int N, std::vector<float> &res_vector);
     void free_device_mem();
-    bool validate_results(std::vector<float> &C_test, std::string test_name,
+    bool validate_results(std::vector<float> &C_test, std::vector<float> &h_C_cpu, std::string test_name,
                           int M, int N, float atol);
-    double benchmark_cpu(int M, int K, int N, float alpha, float beta);
-    double benchmark_softmax_cpu(int M, int K);
-    double benchmark_cublas_sgemv(int M, int N, float alpha, float beta);
-    void benchmark_kernel(int M, int K, int N, float alpha, float beta,
-                          dim3 gridDim, dim3 blockDim, sgemm_kernel_t launcher,
-                          std::string kernel_name, float atol);
-    void benchmark_softmax_kernel(int M, int K,
-                          dim3 gridDim, dim3 blockDim, softmax_kernel_t launcher,
-                          std::string kernel_name, float atol);
-    void benchmark_triple_softmax_kernel(int M, int K,
-                          dim3 gridDim_k0, dim3 gridDim_k1, dim3 gridDim_k2, dim3 blockDim, dim3 blockDim_k0, softmax_init_kernel_t k0, softmax_followUp_kernel_t k1, softmax_followUp_kernel_t k2, std::string kernel_name, float atol);
-    void benchmark_recursive_softmax_kernel(int M, int K, float atol);
-    double ms_to_gflops(int M, int K, int N, double ms);
-    double ms_to_gflops(int M, int K, double ms);
 
     std::vector<float> h_A, h_B, h_C, h_C_init, h_C_cpu, h_C_cublas;
     float *d_A, *d_B, *d_C, *d_C_init_helper;

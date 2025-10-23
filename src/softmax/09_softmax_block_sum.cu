@@ -1,4 +1,4 @@
-#include "softmax.cuh"
+#include "softmax/softmax.cuh"
 
 // row-wise softmax
 __global__ void softmax_block_sum(int M, int N, const float *A, float *C) {
@@ -8,7 +8,7 @@ __global__ void softmax_block_sum(int M, int N, const float *A, float *C) {
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
     // Shared-memory buffers for A and B tiles
-    __shared__ float sums[BLOCKSIZE_02];
+    __shared__ float sums[BLOCKSIZE_00];
 
     float partialSum = 0.0f;
 

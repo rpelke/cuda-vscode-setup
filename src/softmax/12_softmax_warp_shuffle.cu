@@ -1,4 +1,4 @@
-#include "softmax.cuh"
+#include "softmax/softmax.cuh"
 
 // This impl uses warp shuffle intrinsics for the across-thread reduction
 __global__ void softmax_warp_shuffle_k0(int M, int N, const float *A, float *C, float *temp) {

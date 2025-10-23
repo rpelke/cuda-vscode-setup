@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 #include <cstdio>
 #include <nvtx3/nvToolsExt.h>
 

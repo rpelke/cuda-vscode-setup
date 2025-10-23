@@ -1,4 +1,4 @@
-#include "softmax.cuh"
+#include "softmax/softmax.cuh"
 
 // This impl does partial sums, but as a binary tree to reduce calculations
 
