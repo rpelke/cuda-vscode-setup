@@ -50,7 +50,7 @@ void SGEMMBenchmark::benchmark_kernel(int M, int K, int N, float alpha, float be
     copy_results_to_host(d_C, M, N, h_C);
     validate_results(h_C_cpu, h_C, kernel_name, M, N, atol);
     print_results(kernel_ms, kernel_gflops, kernel_name);
-    free_device_mem();
+    free_device_mem(d_A, d_B, d_C, d_C_init_helper);
 }
 
 void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
@@ -78,7 +78,7 @@ void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha, float be
     copy_results_to_host(d_C, M, N, h_C_cublas);
     validate_results(h_C_cpu, h_C_cublas, "Cublas", M, N, 5e-2f);
     print_results(cublas_ms, cublas_gflops, "Cublas");
-    free_device_mem();
+    free_device_mem(d_A, d_B, d_C, d_C_init_helper);
 
     // 00: Test simple kernel
     dim3 blockDim_00(BLOCKSIZE_00, BLOCKSIZE_00, 1);

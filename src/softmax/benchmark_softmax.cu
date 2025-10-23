@@ -57,7 +57,7 @@ void SoftmaxBenchmark::benchmark_kernel(int M, int N,
     copy_results_to_host(d_C, M, N, h_C);
     validate_results(h_C_cpu, h_C, kernel_name, M, N, atol);
     print_results(kernel_ms, kernel_gflops, kernel_name);
-    free_device_mem();
+    free_device_mem(d_A, d_B, d_C, d_C_init_helper);
 }
 
 void SoftmaxBenchmark::benchmark_triple_softmax_kernel(int M, int N,
@@ -99,7 +99,7 @@ void SoftmaxBenchmark::benchmark_triple_softmax_kernel(int M, int N,
     copy_results_to_host(d_C, M, N, h_C);
     validate_results(h_C_cpu, h_C, kernel_name, M, N, 1e-2f);
     print_results(kernel_ms, kernel_gflops, kernel_name);
-    free_device_mem();
+    free_device_mem(d_A, d_C, d_C_init_helper);
 }
 
 void SoftmaxBenchmark::benchmark_recursive_softmax_kernel(int M, int N, float atol = 1e-2f) {
@@ -149,7 +149,7 @@ void SoftmaxBenchmark::benchmark_recursive_softmax_kernel(int M, int N, float at
     copy_results_to_host(d_C, M, N, h_C);
     validate_results(h_C_cpu, h_C, "Kernel 05", M, N, 1e-2f);
     print_results(kernel_ms, kernel_gflops, "Kernel 05");
-    free_device_mem();
+    free_device_mem(d_A, d_C, d_C_init_helper);
 }
 
 void SoftmaxBenchmark::start_benchmarks(int M, int N) {

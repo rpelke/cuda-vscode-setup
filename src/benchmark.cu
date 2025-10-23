@@ -13,8 +13,7 @@ void Benchmark::print_results(double ms, double gflops, std::string name) {
     std::cout << name << ": " << ms << " ms, " << gflops << " GFLOPS\n";
 }
 
-Benchmark::Benchmark() :
-    d_A(nullptr), d_B(nullptr), d_C(nullptr), d_C_init_helper(nullptr) {}
+Benchmark::Benchmark() {}
 
 // GEMM-like init
 void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K, int N) {
@@ -161,11 +160,20 @@ void Benchmark::copy_results_to_host(float *&d_C, int M, int N,
                cudaMemcpyDeviceToHost);
 }
 
-void Benchmark::free_device_mem() {
+void Benchmark::free_device_mem(float *d_A, float *d_B, float *d_C, float *d_C_init_helper) {
     cudaFree(d_A);
     d_A = nullptr;
     cudaFree(d_B);
     d_B = nullptr;
+    cudaFree(d_C);
+    d_C = nullptr;
+    cudaFree(d_C_init_helper);
+    d_C_init_helper = nullptr;
+}
+
+void Benchmark::free_device_mem(float *d_A, float *d_C, float *d_C_init_helper) {
+    cudaFree(d_A);
+    d_A = nullptr;
     cudaFree(d_C);
     d_C = nullptr;
     cudaFree(d_C_init_helper);

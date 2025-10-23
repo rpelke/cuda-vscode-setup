@@ -23,7 +23,7 @@ class SoftmaxBenchmark : Benchmark {
   public:
     SoftmaxBenchmark();
     SoftmaxBenchmark(const SoftmaxBenchmark &) = delete;
-    virtual ~SoftmaxBenchmark() { free_device_mem(); }
+    virtual ~SoftmaxBenchmark() { free_device_mem(d_A, d_C, d_C_init_helper); }
 
     void start_benchmarks(int M, int K);
 
@@ -37,7 +37,7 @@ class SoftmaxBenchmark : Benchmark {
     void benchmark_recursive_softmax_kernel(int M, int K, float atol);
     double ms_to_gflops(int M, int K, double ms);
 
-    std::vector<float> h_A, h_B, h_C, h_C_init, h_C_cpu, h_C_cublas;
+    std::vector<float> h_A, h_C, h_C_init, h_C_cpu, h_C_cublas;
     float *d_A, *d_B, *d_C, *d_C_init_helper;
 };
 

@@ -15,7 +15,7 @@ class SGEMMBenchmark : public Benchmark {
   public:
     SGEMMBenchmark();
     SGEMMBenchmark(const SGEMMBenchmark &) = delete;
-    virtual ~SGEMMBenchmark() { free_device_mem(); }
+    virtual ~SGEMMBenchmark() { free_device_mem(d_A, d_B, d_C, d_C_init_helper); }
 
     void start_benchmarks(int M, int K, int N, float alpha, float beta);
 

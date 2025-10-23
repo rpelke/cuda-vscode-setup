@@ -26,7 +26,7 @@ class Benchmark {
   public:
     Benchmark();
     Benchmark(const Benchmark &) = delete;
-    virtual ~Benchmark() { free_device_mem(); }
+    virtual ~Benchmark() {}
 
     double benchmark_cublas(std::function<cublasStatus_t(cublasHandle_t)> cublasFunc, std::function<void(cudaStream_t)> resetResultTensor, int warmup = 10, int iters = 10);
 
@@ -49,12 +49,10 @@ class Benchmark {
   protected:
     void print_results(double ms, double gflops, std::string name);
     void copy_results_to_host(float *&d_C, int M, int N, std::vector<float> &res_vector);
-    void free_device_mem();
+    void free_device_mem(float *d_A, float *d_B, float *d_C, float *d_C_init_helper);
+    void free_device_mem(float *d_A, float *d_C, float *d_C_init_helper);
     bool validate_results(std::vector<float> &C_test, std::vector<float> &h_C_cpu, std::string test_name,
                           int M, int N, float atol);
-
-    std::vector<float> h_A, h_B, h_C, h_C_init, h_C_cpu, h_C_cublas;
-    float *d_A, *d_B, *d_C, *d_C_init_helper;
 };
 
 #endif // BENCHMARK_CUH
