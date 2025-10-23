@@ -1,4 +1,6 @@
 from triton.runtime.autotuner import Autotuner
+import numpy as np
+from tabulate import tabulate
 
 
 def _get_autotuner_obj(kernel):
@@ -17,9 +19,22 @@ def print_tuning_stats(tuner: Autotuner):
     else:
         print("Configs:", len(at.configs))
         print("Tuning keys:", list(at.cache.keys()))
-        print("--- Best config per key ---")
-        for key, cfg in at.cache.items():
-            print(key, cfg.__dict__)
-        print("--- Timings per config ---")
-        for cfg, t in at.configs_timings.items():
-            print(cfg.__dict__, "->", t, "ms")
+
+        header = [
+            'BLOCK_SIZE_M', 'BLOCK_SIZE_N', 'BLOCK_SIZE_K', 'SWIZZLE_M', 'num_warps', 'num_ctas',
+            'num_stages', 'maxnreg', 'pre_hook', 'ir_override', 'Ø time_ms'
+        ]
+        data = []
+
+        for cfg in at.configs:
+            if cfg in at.configs_timings:
+                data.append([
+                    cfg.kwargs['BLOCK_SIZE_M'], cfg.kwargs['BLOCK_SIZE_N'],
+                    cfg.kwargs['BLOCK_SIZE_K'], cfg.kwargs['SWIZZLE_M'], cfg.num_warps,
+                    cfg.num_ctas, cfg.num_stages,
+                    str(cfg.maxnreg),
+                    str(cfg.pre_hook),
+                    str(cfg.ir_override), f"{float(np.mean(at.configs_timings[cfg])):8.3f}"
+                ])
+
+        print(tabulate(data, headers=header, tablefmt="rounded_grid"))
