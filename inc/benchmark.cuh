@@ -2,6 +2,7 @@
 #define BENCHMARK_CUH
 
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
 #include <functional>
 #include <string>
 
@@ -31,18 +32,32 @@ class Benchmark {
 
     void start_softmax_benchmarks(int M, int K);
 
+    double benchmark_cublas(std::function<cublasStatus_t(cublasHandle_t)> cublasFunc, std::function<void(cudaStream_t)> resetResultTensor, int warmup = 10, int iters = 10);
+
+    // GEMM-like init
+    static void copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int K, int N);
+    // GEMV-like init (B 1-dim)
+    static void copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int N);
+    // softmax-like init
+    static void copy_to_device(float *&d_A, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int N);
+
+    // GEMM-like init
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K, int N);
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K, int N);
+    // GEMV-like init
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N);
+    // softmax-like init
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K);
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K);
+
   private:
-    void init_matrices(int M, int K, int N);
-    void init_matrices(int M, int K);
-    void copy_to_device(int M, int K, int N, std::vector<float> &res_vector);
-    void copy_to_device(int M, int K, std::vector<float> &res_vector);
     void copy_results_to_host(int M, int N, std::vector<float> &res_vector);
     void free_device_mem();
     bool validate_results(std::vector<float> &C_test, std::string test_name,
                           int M, int N, float atol);
     double benchmark_cpu(int M, int K, int N, float alpha, float beta);
     double benchmark_softmax_cpu(int M, int K);
-    double benchmark_cublas(int M, int K, int N, float alpha, float beta);
+    double benchmark_cublas_sgemv(int M, int N, float alpha, float beta);
     void benchmark_kernel(int M, int K, int N, float alpha, float beta,
                           dim3 gridDim, dim3 blockDim, sgemm_kernel_t launcher,
                           std::string kernel_name, float atol);
