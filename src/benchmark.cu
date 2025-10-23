@@ -72,14 +72,14 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, 
 }
 
 // Softmax-like init
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K) {
-    h_A.resize(M * K);
-    h_C.resize(M * K);
-    h_C_init.resize(M * K);
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N) {
+    h_A.resize(M * N);
+    h_C.resize(M * N);
+    h_C_init.resize(M * N);
 
-    for (int i = 0; i < M * K; ++i)
+    for (int i = 0; i < M * N; ++i)
         h_A[i] = static_cast<float>(rand()) / RAND_MAX;
-    for (int i = 0; i < M * K; ++i) {
+    for (int i = 0; i < M * N; ++i) {
         h_C_init[i] = static_cast<float>(rand()) / RAND_MAX;
         h_C[i] = 0.0f;
     }

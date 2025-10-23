@@ -52,7 +52,6 @@ __global__ void softmax_block_binary_k0(int M, int N, const float *A, float *C, 
 
     if(threadIdx.x == 0)
         temp[y * gridDim.x + blockIdx.x] = As[localStartElem];
-
 }
 
 // Kernel 1 does reduction across blocks (use a single y-block for this)

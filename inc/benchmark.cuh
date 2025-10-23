@@ -43,8 +43,8 @@ class Benchmark {
     // GEMV-like init
     void init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N);
     // softmax-like init
-    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K);
-    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K);
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N);
+    void init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int N);
 
   protected:
     void print_results(double ms, double gflops, std::string name);

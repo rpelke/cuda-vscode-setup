@@ -72,7 +72,6 @@ void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha, float be
     std::function<void(cudaStream_t)> resetC = [=](cudaStream_t stream) {CUDA_CHECK(cudaMemcpyAsync(d_C, d_C_init_helper, M * N * sizeof(float),
                                    cudaMemcpyDeviceToDevice, stream));};
 
-    std::cout << "Copied to device" << std::endl;
     double cublas_ms = benchmark_cublas(func, resetC);
 
     double cublas_gflops = ms_to_gflops(M, K, N, cublas_ms);

@@ -4,12 +4,11 @@ add_executable(
     ../benchmark.cu
     benchmark_softmax.cu
     softmax_cpu.cpp
-    08_softmax_simple.cu
-    09_softmax_block_sum.cu
-    10_softmax_block_sum_binary.cu
-    11_softmax_binary_non_divergent.cu
-    12_softmax_sequential_access.cu
-    12_softmax_warp_shuffle.cu
+    00_softmax_simple.cu
+    01_softmax_block_sum.cu
+    02_softmax_block_sum_binary.cu
+    03_softmax_binary_non_divergent.cu
+    04_softmax_warp_shuffle.cu
 )
 
 if(CMAKE_ENABLE_TRACING)
