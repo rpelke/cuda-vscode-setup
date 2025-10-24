@@ -54,20 +54,15 @@ def _prune_configs(configs, named_args, **kwargs):
     return pruned_configs
 
 
-@triton.autotune(configs=get_cuda_autotune_config(),
-                 key=['M', 'N', 'K'],
-                 prune_configs_by={"early_config_prune": _prune_configs},
-                 post_hook=validate_results,
-                 cache_results=True)
+# Helper: 1D -> 2D PIDs (using M-Swizzle)
 @triton.jit
-def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
-                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_M: tl.constexpr):
-    """
-    C = A x B
-    A: (M, K) float32
-    B: (K, N) float32
-    C: (M, N) float32
-    """
+def pid_mn_from_pid(
+    BLOCK_SIZE_M: tl.constexpr,
+    BLOCK_SIZE_N: tl.constexpr,
+    M: tl.constexpr,
+    N: tl.constexpr,
+    SWIZZLE_M: tl.constexpr,
+):
     # pid: program ID
     # Corresponds to blockIdx.x in CUDA (axis=0)
     # Get the maximum number of program IDs: tl.num_programs(axis=0)
@@ -97,11 +92,30 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
 
     tl.assume(pid_m >= 0)
     tl.assume(pid_n >= 0)
+    return pid_m, pid_n
+
+
+@triton.autotune(configs=get_cuda_autotune_config(),
+                 key=['M', 'N', 'K'],
+                 prune_configs_by={"early_config_prune": _prune_configs},
+                 post_hook=validate_results,
+                 cache_results=True)
+@triton.jit
+def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
+                  BLOCK_SIZE_N: tl.constexpr, BLOCK_SIZE_K: tl.constexpr, SWIZZLE_M: tl.constexpr):
+    """
+    C = A x B
+    A: (M, K) float32
+    B: (K, N) float32
+    C: (M, N) float32
+    """
+    # Block index conversion
+    pid_m, pid_n = pid_mn_from_pid(BLOCK_SIZE_M, BLOCK_SIZE_N, M, N, SWIZZLE_M)
 
     # Row indices in tile (pid_m, pid_n) in A and C
-    offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)) % M
+    offs_am = (pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M))
     # Column indices in tile (pid_m, pid_n) in B and C
-    offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)) % N
+    offs_bn = (pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N))
     # Relative indices in K dimension
     offs_k = tl.arange(0, BLOCK_SIZE_K)
 
@@ -117,10 +131,10 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
         # Load A and B tiles from global memory
         # Use masks to avoid out-of-bounds accesses
         mask_k = offs_k[None, :] < K - k * BLOCK_SIZE_K
-        mask_m = offs_am[:, None] >= pid_m * BLOCK_SIZE_M
+        mask_m = offs_am[:, None] < M
         a = tl.load(a_ptrs, mask=mask_m & mask_k, other=0.0)
         mask_k = offs_k[:, None] < K - k * BLOCK_SIZE_K
-        mask_n = offs_bn[None, :] >= pid_n * BLOCK_SIZE_N
+        mask_n = offs_bn[None, :] < N
         b = tl.load(b_ptrs, mask=mask_k & mask_n, other=0.0)
         # accumulator += a @ b
         accumulator = tl.dot(a, b, accumulator)
