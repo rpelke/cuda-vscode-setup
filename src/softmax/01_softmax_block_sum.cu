@@ -3,7 +3,6 @@
 // row-wise softmax
 __global__ void softmax_block_sum(int M, int N, const float *A, float *C) {
     // Position in array C from a global perspective:
-
     const unsigned int x = threadIdx.x + blockIdx.x * blockDim.x;
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 

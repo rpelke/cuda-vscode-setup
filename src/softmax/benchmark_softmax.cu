@@ -26,7 +26,6 @@ double SoftmaxBenchmark::ms_to_gflops(int M, int N, double ms) {
 
 double SoftmaxBenchmark::benchmark_cpu(int M, int K) {
     auto cpu_start = std::chrono::high_resolution_clock::now();
-    std::cout << "Starting cpu calculation..." << std::endl;
     cpu_softmax(M, K, h_A, h_C_cpu);
     auto cpu_end = std::chrono::high_resolution_clock::now();
     return std::chrono::duration<double, std::milli>(cpu_end - cpu_start)
@@ -184,7 +183,6 @@ void SoftmaxBenchmark::start_benchmarks(int M, int N) {
 
     // Grid for k1 has only one column
     dim3 gridDim_k1(1, gridDim_00.y, gridDim_00.z);
-    std::cout << "GridDim_k0: " << gridDim_00.x << ", " << gridDim_00.y << ", " << gridDim_00.z << std::endl;
     benchmark_triple_softmax_kernel(
         M, N, gridDim_00, gridDim_k1, gridDim_00, blockDim_00, blockDim_00,
         [](int M, int N, const float *A, float *C, float *temp, dim3 gridDim, dim3 blockDim) -> void {
