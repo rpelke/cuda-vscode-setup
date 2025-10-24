@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 #include <cstdio>
 
 // Tiled 2D SGEMM kernel: C = alpha * A @ B + beta * C

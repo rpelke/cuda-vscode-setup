@@ -5,9 +5,8 @@
 #include <string>
 #include <vector>
 
-#include "sgemm_kernel_dimension.cuh"
+#include "sgemm/sgemm_kernel_dimensions.cuh"
 
-constexpr int CEIL_DIV(int a, int b) { return (a + b - 1) / b; }
 constexpr int VEC_SIZE_04 = sizeof(DTypeVector_04) / sizeof(float);
 constexpr int VEC_SIZE_05 = sizeof(DTypeVector_05) / sizeof(float);
 

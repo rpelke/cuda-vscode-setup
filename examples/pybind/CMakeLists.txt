@@ -28,7 +28,7 @@ set(TORCH_LIB_DIR ${PY_PACKAGE_DIR}/torch/lib)
 
 pybind11_add_module(mymatmul SHARED
     main.cu
-    ../../src/07_tensor_cores.cu
+    ../../src/sgemm/07_sgemm_tensor_cores.cu
 )
 include_directories(mymatmul PRIVATE
     ${TORCH_INCLUDE_DIRS}

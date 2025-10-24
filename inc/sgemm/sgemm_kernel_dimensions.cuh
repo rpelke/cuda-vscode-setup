@@ -1,5 +1,5 @@
-#ifndef SGEMM_KERNEL_DIMENSION_CUH
-#define SGEMM_KERNEL_DIMENSION_CUH
+#ifndef SGEMM_KERNEL_DIMENSIONS_CUH
+#define SGEMM_KERNEL_DIMENSIONS_CUH
 
 // Kernel 00
 constexpr int BLOCKSIZE_00 = 32;
@@ -47,4 +47,4 @@ constexpr int BLOCKSIZE_07 = 16;
 constexpr int TM_07 = 8;
 constexpr int TN_07 = 1;
 
-#endif // SGEMM_KERNEL_DIMENSION_CUH
+#endif // SGEMM_KERNEL_DIMENSIONS_CUH

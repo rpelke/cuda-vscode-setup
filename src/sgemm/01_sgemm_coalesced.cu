@@ -1,4 +1,4 @@
-#include "sgemm.cuh"
+#include "sgemm/sgemm.cuh"
 
 // Simple SGEMM with coalesced access: C = alpha * A @ B + beta * C
 __global__ void sgemm_coalesced(int M, int N, int K, float alpha,

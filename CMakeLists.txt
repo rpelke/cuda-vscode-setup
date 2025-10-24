@@ -14,38 +14,32 @@ option(CMAKE_ENABLE_TRACING "Enable CUDA lineinfo for profiling/tracing" OFF)
 
 find_library(CUBLAS_LIBRARY cublas ${CUDA_PATH}/lib64)
 
+add_subdirectory(src/sgemm)
+add_subdirectory(src/softmax)
+
 add_executable(
-    sgemm
-    main.cu
+    benchmark_cublas_kernels
+    src/benchmark_cublas_kernels.cu
     src/benchmark.cu
-    src/sgemm_cpu.cpp
-    src/00_sgemm_simple.cu
-    src/01_sgemm_coalesced.cu
-    src/02_sgemm_tiled.cu
-    src/03_sgemm_tiled_2d.cu
-    src/04_sgemm_tiled_2d_vectorized_1.cu
-    src/05_sgemm_tiled_2d_vectorized_2.cu
-    src/06_sgemm_warptiling.cu
-    src/07_tensor_cores.cu
 )
 
 if(CMAKE_ENABLE_TRACING)
   message(STATUS "CUDA tracing enabled: adding -lineinfo and -Xptxas=-v")
-  target_compile_options(sgemm PRIVATE
+  target_compile_options(benchmark_cublas_kernels PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>
     $<$<COMPILE_LANGUAGE:CUDA>:-Xptxas=-v>
   )
 endif()
 
 target_include_directories(
-    sgemm
+    benchmark_cublas_kernels
     PRIVATE inc
     PRIVATE ${CUDA_PATH}/include
 )
-target_link_libraries(sgemm
+target_link_libraries(benchmark_cublas_kernels
   PRIVATE ${CUBLAS_LIBRARY} cuda cudart
 )
 install(
-    TARGETS sgemm
+    TARGETS sgemm softmax benchmark_cublas_kernels
     DESTINATION bin
 )
