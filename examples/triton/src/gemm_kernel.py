@@ -2,38 +2,29 @@ import math
 import torch
 import triton
 import triton.language as tl
+from itertools import product
 
 
 def get_cuda_autotune_config():
-    BK = 32
-    # (BM, BN, num_warps, num_stages, swizzle_m)
-    specs = [
-        (128, 128, 4, 4, 8),
-        (128, 64, 4, 4, 8),
-        (64, 128, 4, 4, 8),
-        (64, 64, 2, 5, 8),
-        (128, 256, 8, 3, 8),
-        (256, 128, 8, 3, 8),
-        (128, 32, 4, 4, 8),
-        (32, 128, 4, 4, 8),
-        (128, 128, 4, 4, 4),
-        (128, 64, 4, 4, 4),
-        (64, 128, 4, 4, 4),
-        (64, 64, 2, 5, 4),
-        (128, 256, 8, 3, 4),
-        (256, 128, 8, 3, 4),
-        (128, 32, 4, 4, 4),
-        (32, 128, 4, 4, 4),
-    ]
+    BM = [64, 128]
+    BN = [64, 128]
+    BK = [16, 32]
+    NUM_WARPS = [4, 8]
+    NUM_STAGES = [3, 4]
+    SWIZZLE_M = [4, 6]
+
+    specs = [(bm, bn, bk, w, st, sw)
+             for bm, bn, w, st, sw in product(BM, BN, NUM_WARPS, NUM_STAGES, SWIZZLE_M) for bk in BK
+             if bk <= bm and bk <= bn]
     return [
-        triton.Config({
+        triton.Config(kwargs={
             'BLOCK_SIZE_M': bm,
             'BLOCK_SIZE_N': bn,
-            'BLOCK_SIZE_K': BK,
+            'BLOCK_SIZE_K': bk,
             'SWIZZLE_M': sw
         },
-                      num_warps=warps,
-                      num_stages=stages) for (bm, bn, warps, stages, sw) in specs
+                      num_warps=w,
+                      num_stages=st) for (bm, bn, bk, w, st, sw) in specs
     ]
 
 
@@ -46,8 +37,6 @@ def validate_results(*args, **kwargs):
     torch_output = torch.matmul(a, b)
     if not torch.allclose(triton_output, torch_output, atol=1e-4, rtol=1e-5):
         print("Post hook: Test failed! ❌")
-    else:
-        print("Post hook: Test passed! ✅")
 
 
 # Filter configurations depending on the matrix sizes
