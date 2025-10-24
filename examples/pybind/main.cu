@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "sgemm/sgemm.cuh"
+#include "utils.cuh"
 
 torch::Tensor matmul_linear(torch::Tensor x, torch::Tensor W) {
     TORCH_CHECK(x.dim() == 2, "x must be 2D [N, in_features]");
