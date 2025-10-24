@@ -19,7 +19,7 @@ def print_tuning_stats(tuner: Autotuner):
     else:
         print("Configs:", len(at.configs))
         print("Tuning keys:", list(at.cache.keys()))
-        
+
         header = [
             'BLOCK_SIZE_M', 'BLOCK_SIZE_N', 'BLOCK_SIZE_K', 'SWIZZLE_M', 'num_warps', 'num_ctas',
             'num_stages', 'maxnreg', 'pre_hook', 'ir_override', 'Ø time_ms'
