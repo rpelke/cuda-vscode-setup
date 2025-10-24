@@ -21,7 +21,7 @@ __global__ void softmax_block_binary_k0(int M, int N, const float *A, float *C, 
     int localStartElem = threadIdx.y * blockDim.x + 2*threadIdx.x;
 
     // load A into shared mem
-    __shared__ float As[BLOCKSIZE_10 * BLOCKSIZE_10];
+    __shared__ float As[BLOCKSIZE_02 * BLOCKSIZE_02];
 
     // Threads that exceed block should idle
     if(2*threadIdx.x >= blockDim.x) return;
@@ -58,7 +58,7 @@ __global__ void softmax_block_binary_k0(int M, int N, const float *A, float *C, 
 __global__ void softmax_block_binary_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_x_k0) {
 
     // load temp into shared mem (split along x-axis)
-    extern __shared__ float temp_s[]; // BLOCKSIZE_10*gridDim_x_k0
+    extern __shared__ float temp_s[]; // BLOCKSIZE_02*gridDim_x_k0
 
     // Threads that exceed block should idle
     if(2*threadIdx.x >= gridDim_x_k0) return;

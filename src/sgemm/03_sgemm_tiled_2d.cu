@@ -3,7 +3,7 @@
 
 // Tiled 2D SGEMM kernel: C = alpha * A @ B + beta * C
 __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
-                               const float *B, float beta, float *C) { // beta is constant offset
+                               const float *B, float beta, float *C) {
     unsigned int bx = blockIdx.x;
     unsigned int by = blockIdx.y;
     unsigned int tx = threadIdx.x;
@@ -34,8 +34,8 @@ __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
     __shared__ float Bs[BK_03 * BN_03];
 
     // k = {0, BK_03, 2*BK_03, ...}
-    for (int k = 0; k < K; k += BK_03) {                    // Tiling like in 02
-        // Each thread loads TM_03 values into As           // Why? Threads could also load only 1 like in 02 // No, not enough threads as they now handle multiple elements
+    for (int k = 0; k < K; k += BK_03) {
+        // Each thread loads TM_03 values into As
         for (int tm = 0; tm < TM_03; ++tm) {
             if ((k + tx < K) &&
                 (by * BM_03 + ty * TM_03 + tm < M)) { // bounds check
@@ -60,7 +60,7 @@ __global__ void sgemm_tiled_2d(int M, int N, int K, float alpha, const float *A,
         B_tile_offs += N * BK_03;
         __syncthreads();
 
-        // Each thread computes a TM_03xTN_03 block  // Why only 1 
+        // Each thread computes a TM_03xTN_03 block
         float tmp[TM_03][TN_03] = {0.0f};
         for (int tm = 0; tm < TM_03; ++tm) {
             for (int tn = 0; tn < TN_03; ++tn) {

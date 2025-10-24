@@ -14,35 +14,35 @@
 __global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, float *C, float *temp) { // temp holds results for across-block reduction
     // Position in array C from a global perspective:
 
-    const unsigned int x = threadIdx.x + blockIdx.x * BLOCKSIZE_X_11;
+    const unsigned int x = threadIdx.x + blockIdx.x * BLOCKSIZE_X_03;
     const unsigned int y = threadIdx.y + blockIdx.y * blockDim.y;
 
     int globalStartElem = y*N+x+threadIdx.x;
-    int localStartElem = threadIdx.y * BLOCKSIZE_X_11 + 2*threadIdx.x;
+    int localStartElem = threadIdx.y * BLOCKSIZE_X_03 + 2*threadIdx.x;
 
     // load A into shared mem
-    __shared__ float As[BLOCKSIZE_11 * BLOCKSIZE_X_11];
+    __shared__ float As[BLOCKSIZE_03 * BLOCKSIZE_X_03];
 
     // Threads that exceed block should idle
-    if(2*threadIdx.x >= BLOCKSIZE_X_11) return;
+    if(2*threadIdx.x >= BLOCKSIZE_X_03) return;
 
     // Each thread loads it's start element and it's neighbour (if exists)
     As[localStartElem] = __expf(A[globalStartElem]);
-    if(2*threadIdx.x+1 < BLOCKSIZE_X_11)
+    if(2*threadIdx.x+1 < BLOCKSIZE_X_03)
         As[localStartElem + 1] = A[globalStartElem+1];
 
     __syncthreads();
 
     // Each thread calculates a partial sum
     int i = 1;
-    for (; i <= BLOCKSIZE_X_11; i*=2) {
+    for (; i <= BLOCKSIZE_X_03; i*=2) {
         int index = 2*i*threadIdx.x;
-        bool outOfBlock = index+i >= BLOCKSIZE_X_11;
-        bool outOfMat = blockIdx.x*BLOCKSIZE_X_11+index+i >= N;
+        bool outOfBlock = index+i >= BLOCKSIZE_X_03;
+        bool outOfMat = blockIdx.x*BLOCKSIZE_X_03+index+i >= N;
 
         if(!outOfBlock && !outOfMat) {
-            if (i == 1) As[threadIdx.y*BLOCKSIZE_X_11+index] += __expf(As[threadIdx.y*BLOCKSIZE_X_11+index + i]);
-            else As[threadIdx.y*BLOCKSIZE_X_11+index] += As[threadIdx.y*BLOCKSIZE_X_11+index + i];
+            if (i == 1) As[threadIdx.y*BLOCKSIZE_X_03+index] += __expf(As[threadIdx.y*BLOCKSIZE_X_03+index + i]);
+            else As[threadIdx.y*BLOCKSIZE_X_03+index] += As[threadIdx.y*BLOCKSIZE_X_03+index + i];
         }
         __syncthreads();
     }
@@ -55,7 +55,7 @@ __global__ void softmax_binary_non_divergent_k0(int M, int N, const float *A, fl
 __global__ void softmax_binary_non_divergent_k1(int M, int N, const float *A, float *C, float *temp, int gridDim_x_k0) {
 
     // load temp into shared mem (split along x-axis)
-    extern __shared__ float temp_s[]; // BLOCKSIZE_10*gridDim_x_k0
+    extern __shared__ float temp_s[]; // BLOCKSIZE_02*gridDim_x_k0
 
     // Threads that exceed block should idle
     if(2*threadIdx.x >= gridDim_x_k0) return;

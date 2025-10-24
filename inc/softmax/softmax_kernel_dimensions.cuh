@@ -1,13 +1,14 @@
 #ifndef SOFTMAX_KERNEL_DIMENSIONS_CUH
 #define SOFTMAX_KERNEL_DIMENSIONS_CUH
 
+// Kernel 00
 constexpr int BLOCKSIZE_00 = 32;
 
-// Kernel 10
-constexpr int BLOCKSIZE_10 = 32;
+// Kernel 02
+constexpr int BLOCKSIZE_02 = 32;
 
-// Kernel 11
-constexpr int BLOCKSIZE_11 = 32;
-constexpr int BLOCKSIZE_X_11 = 64;
+// Kernel 03
+constexpr int BLOCKSIZE_03 = 32;
+constexpr int BLOCKSIZE_X_03 = 64;
 
 #endif // SOFTMAX_KERNEL_DIMENSIONS_CUH

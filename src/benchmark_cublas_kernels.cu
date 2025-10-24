@@ -1,15 +1,7 @@
 #include "benchmark.cuh"
 #include <cuda_runtime.h>
 #include <iostream>
-
-#define CUDA_CHECK(val) cudaCheck((val), __FILE__, __LINE__)
-inline void cudaCheck(cudaError_t err, const char *file, int line) {
-    if (err != cudaSuccess) {
-        std::cerr << "CUDA error at " << file << ":" << line << " -> "
-                  << cudaGetErrorString(err) << std::endl;
-        std::exit(EXIT_FAILURE);
-    }
-}
+#include "utils.cuh"
 
 void free_sgemm_matrices(float *&d_A, float *&d_B, float *&d_C, float *&d_C_init_helper){
     cudaFree(d_A);
@@ -78,4 +70,6 @@ int main() {
 
     double cublas_ms = b.benchmark_cublas(kernel, resetC2);
     std::cout << "SGEMV finished in " << cublas_ms << " ms." << std::endl;
+
+    free_sgemm_matrices(d_A, d_B, d_C, d_C_init_helper);
 }

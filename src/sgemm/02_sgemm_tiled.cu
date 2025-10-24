@@ -12,7 +12,7 @@ __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
     int t_x = threadIdx.x;
 
     // Pointers to the block's top-left (position in C)
-    const int C_tile_offs = (BLOCKSIZE_02 * N * b_y) + (BLOCKSIZE_02 * b_x); // vertical offset + horizontal offset
+    const int C_tile_offs = (BLOCKSIZE_02 * N * b_y) + (BLOCKSIZE_02 * b_x);
     // Offset to row=0 and col=b_x in B
     const int B_tile_offs = BLOCKSIZE_02 * b_x;
     // Offset to row=b_y and col=0 in A
@@ -25,8 +25,8 @@ __global__ void sgemm_tiled(int M, int N, int K, float alpha, const float *A,
     float tmp = 0.0f;
 
     // k={0,31,63,...}
-    for (int k = 0; k < K; k += BLOCKSIZE_02) { //SIMD, each block is actually a tile inside C and only requires K iterations
-        // Load one A value and one B value per thread to shared memory // Important: Even the load is parallelized
+    for (int k = 0; k < K; k += BLOCKSIZE_02) {
+        // Load one A value and one B value per thread to shared memory
         if ((k + t_x < K) && (b_y * BLOCKSIZE_02 + t_y < M)) {
             As[BLOCKSIZE_02 * t_y + t_x] = A[A_tile_offs + K * t_y + t_x];
         } else {

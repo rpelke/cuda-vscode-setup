@@ -200,7 +200,6 @@ void SoftmaxBenchmark::start_benchmarks(int M, int N) {
     );
 
     // 03: Test softmax with resolved warp divergencies
-    dim3 blockDim_10_k0(BLOCKSIZE_00, BLOCKSIZE_00, 1);
     dim3 gridDim_k0(CEIL_DIV(M, 2*BLOCKSIZE_00), CEIL_DIV(N, BLOCKSIZE_00), 1);
     benchmark_triple_softmax_kernel(
         M, N, gridDim_k0, gridDim_k1, gridDim_00, blockDim_00, blockDim_00,
