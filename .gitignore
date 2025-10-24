@@ -1,5 +1,6 @@
 # Artefacts
 build
+artifacts
 *.nsys-rep
 *.sqlite
 *.ncu-rep

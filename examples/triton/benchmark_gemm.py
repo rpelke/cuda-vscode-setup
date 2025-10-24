@@ -1,40 +1,15 @@
 from src.gemm_kernel import check_and_launch_matmul, matmul_kernel
 from src.print_stats import get_autotuner_obj
+from src.torch_kernel import time_gpu
+from tabulate import tabulate
 import torch
 import triton
-from tabulate import tabulate
 
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 def gflops(m, n, k, ms):
     return (2.0 * m * n * k) / (ms * 1e-3) / 1e9
-
-
-@torch.inference_mode()
-def time_gpu(fn, warmup=5, iters=20):
-    # Warmup
-    for _ in range(warmup):
-        fn()
-    torch.cuda.synchronize()
-
-    times_ms = []
-    for _ in range(iters):
-        start = torch.cuda.Event(enable_timing=True)
-        end = torch.cuda.Event(enable_timing=True)
-        start.record()
-        fn()
-        end.record()
-        torch.cuda.synchronize()
-        times_ms.append(start.elapsed_time(end))
-
-    times_ms.sort()
-    n = len(times_ms)
-    if n % 2 == 1:
-        median_ms = times_ms[n // 2]
-    else:
-        median_ms = 0.5 * (times_ms[n // 2 - 1] + times_ms[n // 2])
-    return median_ms
 
 
 def rand_mat(m, k, dtype=torch.float32):

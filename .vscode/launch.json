@@ -9,7 +9,9 @@
             "console": "integratedTerminal",
             "env": {
                 "TRITON_INTERPRET": "0", // Set to "1" to debug (interpret) Triton code
-                "TRITON_PRINT_AUTOTUNING": "1" // Set to "1" to print autotuning information
+                "TRITON_PRINT_AUTOTUNING": "1", // Set to "1" to print autotuning information
+                "TRITON_KERNEL_DUMP": "1", // Set to "1" to dump generated kernel code
+                "TRITON_DUMP_DIR": "${workspaceFolder}/artifacts" // Directory to save dumped kernels
             },
             "justMyCode": false
         },
