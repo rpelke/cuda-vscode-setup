@@ -11,7 +11,7 @@ add_executable(
     04_sgemm_tiled_2d_vectorized_1.cu
     05_sgemm_tiled_2d_vectorized_2.cu
     06_sgemm_warptiling.cu
-    07_tensor_cores.cu
+    07_sgemm_tensor_cores.cu
 )
 
 if(CMAKE_ENABLE_TRACING)

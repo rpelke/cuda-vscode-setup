@@ -2,8 +2,8 @@
 #define BENCHMARK_SGEMM_BENCHMARK_CUH
 
 #include "benchmark.cuh"
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 #include <functional>
 #include <string>
 
@@ -15,7 +15,9 @@ class SGEMMBenchmark : public Benchmark {
   public:
     SGEMMBenchmark();
     SGEMMBenchmark(const SGEMMBenchmark &) = delete;
-    virtual ~SGEMMBenchmark() { free_device_mem(d_A, d_B, d_C, d_C_init_helper); }
+    virtual ~SGEMMBenchmark() {
+        free_device_mem(d_A, d_B, d_C, d_C_init_helper);
+    }
 
     void start_benchmarks(int M, int K, int N, float alpha, float beta);
 

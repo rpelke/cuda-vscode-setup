@@ -16,7 +16,12 @@ void Benchmark::print_results(double ms, double gflops, std::string name) {
 Benchmark::Benchmark() {}
 
 // GEMM-like init
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int K, int N) {
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B,
+                              std::vector<float> &h_C,
+                              std::vector<float> &h_C_init,
+                              std::vector<float> &h_C_cpu,
+                              std::vector<float> &h_C_cublas, int M, int K,
+                              int N) {
     h_A.resize(M * K);
     h_B.resize(K * N);
     h_C.resize(M * N);
@@ -37,7 +42,10 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, 
 }
 
 // GEMM-like init including cpu and cublas
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int K, int N) {
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B,
+                              std::vector<float> &h_C,
+                              std::vector<float> &h_C_init, int M, int K,
+                              int N) {
     h_A.resize(M * K);
     h_B.resize(K * N);
     h_C.resize(M * N);
@@ -48,13 +56,16 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, 
     for (int i = 0; i < K * N; ++i)
         h_B[i] = static_cast<float>(rand()) / RAND_MAX;
     for (int i = 0; i < M * N; ++i) {
-        h_C_init[i] = static_cast<float>(rand()) / RAND_MAX;;
+        h_C_init[i] = static_cast<float>(rand()) / RAND_MAX;
+        ;
         h_C[i] = 0.0f;
     }
 }
 
 // GEMV-like init
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N) {
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B,
+                              std::vector<float> &h_C,
+                              std::vector<float> &h_C_init, int M, int N) {
     h_A.resize(M * N);
     h_B.resize(N);
     h_C.resize(M);
@@ -65,13 +76,15 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_B, 
     for (int i = 0; i < N; ++i)
         h_B[i] = static_cast<float>(rand()) / RAND_MAX;
     for (int i = 0; i < M; ++i) {
-        h_C_init[i] = static_cast<float>(rand()) / RAND_MAX;;
+        h_C_init[i] = static_cast<float>(rand()) / RAND_MAX;
+        ;
         h_C[i] = 0.0f;
     }
 }
 
 // Softmax-like init
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, int M, int N) {
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C,
+                              std::vector<float> &h_C_init, int M, int N) {
     h_A.resize(M * N);
     h_C.resize(M * N);
     h_C_init.resize(M * N);
@@ -85,7 +98,10 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, 
 }
 
 // Softmax-like init including cpu and cublas
-void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &h_C_init, std::vector<float> &h_C_cpu, std::vector<float> &h_C_cublas, int M, int N) {
+void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C,
+                              std::vector<float> &h_C_init,
+                              std::vector<float> &h_C_cpu,
+                              std::vector<float> &h_C_cublas, int M, int N) {
     h_A.resize(M * N);
     h_C.resize(M * N);
     h_C_init.resize(M * N);
@@ -103,7 +119,11 @@ void Benchmark::init_matrices(std::vector<float> &h_A, std::vector<float> &h_C, 
     }
 }
 
-void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int K, int N) {
+void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C,
+                               float *&d_C_init_helper, std::vector<float> &h_A,
+                               std::vector<float> &h_B, std::vector<float> &h_C,
+                               std::vector<float> &res_vector, int M, int K,
+                               int N) {
     CUDA_CHECK(cudaMalloc(&d_A, M * K * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_B, K * N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(float)));
@@ -121,7 +141,10 @@ void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_
                           cudaMemcpyHostToDevice));
 }
 
-void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_B, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int N) {
+void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C,
+                               float *&d_C_init_helper, std::vector<float> &h_A,
+                               std::vector<float> &h_B, std::vector<float> &h_C,
+                               std::vector<float> &res_vector, int M, int N) {
     CUDA_CHECK(cudaMalloc(&d_A, M * N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_B, N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_C, M * sizeof(float)));
@@ -139,7 +162,10 @@ void Benchmark::copy_to_device(float *&d_A, float *&d_B, float *&d_C, float *&d_
                           cudaMemcpyHostToDevice));
 }
 
-void Benchmark::copy_to_device(float *&d_A, float *&d_C, float *&d_C_init_helper, std::vector<float> &h_A, std::vector<float> &h_C, std::vector<float> &res_vector, int M, int N) {
+void Benchmark::copy_to_device(float *&d_A, float *&d_C,
+                               float *&d_C_init_helper, std::vector<float> &h_A,
+                               std::vector<float> &h_C,
+                               std::vector<float> &res_vector, int M, int N) {
     CUDA_CHECK(cudaMalloc(&d_A, M * N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_C, M * N * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_C_init_helper, M * N * sizeof(float)));
@@ -160,7 +186,8 @@ void Benchmark::copy_results_to_host(float *&d_C, int M, int N,
                cudaMemcpyDeviceToHost);
 }
 
-void Benchmark::free_device_mem(float *d_A, float *d_B, float *d_C, float *d_C_init_helper) {
+void Benchmark::free_device_mem(float *d_A, float *d_B, float *d_C,
+                                float *d_C_init_helper) {
     cudaFree(d_A);
     d_A = nullptr;
     cudaFree(d_B);
@@ -171,7 +198,8 @@ void Benchmark::free_device_mem(float *d_A, float *d_B, float *d_C, float *d_C_i
     d_C_init_helper = nullptr;
 }
 
-void Benchmark::free_device_mem(float *d_A, float *d_C, float *d_C_init_helper) {
+void Benchmark::free_device_mem(float *d_A, float *d_C,
+                                float *d_C_init_helper) {
     cudaFree(d_A);
     d_A = nullptr;
     cudaFree(d_C);
@@ -180,7 +208,8 @@ void Benchmark::free_device_mem(float *d_A, float *d_C, float *d_C_init_helper) 
     d_C_init_helper = nullptr;
 }
 
-bool Benchmark::validate_results(std::vector<float> &C_test, std::vector<float> &h_C_cpu,
+bool Benchmark::validate_results(std::vector<float> &C_test,
+                                 std::vector<float> &h_C_cpu,
                                  std::string test_name, int M, int N,
                                  float atol = 1e-2f) {
     int mismatches = 0;
@@ -202,7 +231,10 @@ bool Benchmark::validate_results(std::vector<float> &C_test, std::vector<float> 
     return false;
 }
 
-double Benchmark::benchmark_cublas(std::function<cublasStatus_t(cublasHandle_t)> cublasFunc, std::function<void(cudaStream_t)> resetResultTensor, int warmup, int iters) {
+double Benchmark::benchmark_cublas(
+    std::function<cublasStatus_t(cublasHandle_t)> cublasFunc,
+    std::function<void(cudaStream_t)> resetResultTensor, int warmup,
+    int iters) {
     cublasHandle_t handle;
     cublasCreate(&handle);
 

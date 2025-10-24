@@ -13,7 +13,8 @@
 SGEMMBenchmark::SGEMMBenchmark() :
     d_A(nullptr), d_B(nullptr), d_C(nullptr), d_C_init_helper(nullptr) {}
 
-double SGEMMBenchmark::benchmark_cpu(int M, int K, int N, float alpha, float beta) {
+double SGEMMBenchmark::benchmark_cpu(int M, int K, int N, float alpha,
+                                     float beta) {
     auto cpu_start = std::chrono::high_resolution_clock::now();
     cpu_sgemm(M, N, K, alpha, h_A, h_B, beta, h_C_cpu);
     auto cpu_end = std::chrono::high_resolution_clock::now();
@@ -26,11 +27,13 @@ double SGEMMBenchmark::ms_to_gflops(int M, int K, int N, double ms) {
     return gflops;
 }
 
-void SGEMMBenchmark::benchmark_kernel(int M, int K, int N, float alpha, float beta,
-                                 dim3 gridDim, dim3 blockDim,
-                                 sgemm_kernel_t launcher,
-                                 std::string kernel_name, float atol = 1e-2f) {
-    copy_to_device(d_A, d_B, d_C, d_C_init_helper, h_A, h_B, h_C, h_C_init, M, K, N);
+void SGEMMBenchmark::benchmark_kernel(int M, int K, int N, float alpha,
+                                      float beta, dim3 gridDim, dim3 blockDim,
+                                      sgemm_kernel_t launcher,
+                                      std::string kernel_name,
+                                      float atol = 1e-2f) {
+    copy_to_device(d_A, d_B, d_C, d_C_init_helper, h_A, h_B, h_C, h_C_init, M,
+                   K, N);
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
@@ -53,7 +56,8 @@ void SGEMMBenchmark::benchmark_kernel(int M, int K, int N, float alpha, float be
     free_device_mem(d_A, d_B, d_C, d_C_init_helper);
 }
 
-void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha, float beta) {
+void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha,
+                                      float beta) {
     // Initialize matrices
     init_matrices(h_A, h_B, h_C, h_C_init, h_C_cpu, h_C_cublas, M, K, N);
 
@@ -63,14 +67,21 @@ void SGEMMBenchmark::start_benchmarks(int M, int K, int N, float alpha, float be
     print_results(cpu_ms, cpu_gflops, "CPU");
 
     // Cublas reference
-    copy_to_device(d_A, d_B, d_C, d_C_init_helper, h_A, h_B, h_C, h_C_init, M, K, N);
+    copy_to_device(d_A, d_B, d_C, d_C_init_helper, h_A, h_B, h_C, h_C_init, M,
+                   K, N);
 
-    std::function<cublasStatus_t(cublasHandle_t)> func = [=](cublasHandle_t handle) -> cublasStatus_t { return cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha, d_B,
-                     CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C, CUDA_R_32F,
-                     N, CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP);};
+    std::function<cublasStatus_t(cublasHandle_t)> func =
+        [=](cublasHandle_t handle) -> cublasStatus_t {
+        return cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N, N, M, K, &alpha,
+                            d_B, CUDA_R_32F, N, d_A, CUDA_R_32F, K, &beta, d_C,
+                            CUDA_R_32F, N, CUDA_R_32F,
+                            CUBLAS_GEMM_DEFAULT_TENSOR_OP);
+    };
 
-    std::function<void(cudaStream_t)> resetC = [=](cudaStream_t stream) {CUDA_CHECK(cudaMemcpyAsync(d_C, d_C_init_helper, M * N * sizeof(float),
-                                   cudaMemcpyDeviceToDevice, stream));};
+    std::function<void(cudaStream_t)> resetC = [=](cudaStream_t stream) {
+        CUDA_CHECK(cudaMemcpyAsync(d_C, d_C_init_helper, M * N * sizeof(float),
+                                   cudaMemcpyDeviceToDevice, stream));
+    };
 
     double cublas_ms = benchmark_cublas(func, resetC);
 

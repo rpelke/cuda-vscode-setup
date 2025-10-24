@@ -12,7 +12,8 @@ __global__ void softmax_block_sum(int M, int N, const float *A, float *C) {
     float partialSum = 0.0f;
 
     // Each thread calculates a partial sum
-    for (int col = N / blockDim.y * threadIdx.y; col < min(N / blockDim.y * (threadIdx.y+1), N); col++) {
+    for (int col = N / blockDim.y * threadIdx.y;
+         col < min(N / blockDim.y * (threadIdx.y + 1), N); col++) {
         partialSum += __expf(A[x * N + col]);
     }
 
