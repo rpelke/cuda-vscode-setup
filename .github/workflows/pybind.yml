@@ -10,20 +10,41 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     container:
-      image: nvidia/cuda:13.0.0-devel-ubuntu22.04 
+      image: nvidia/cuda:13.0.0-devel-ubuntu22.04
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: apt-get update && apt-get install -y build-essential cmake python3.10 python3.10-venv pip
-
-      - name: Compile pybind example
+      - name: Install system dependencies
         run: |
-          python3 -m venv .venv
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            build-essential \
+            cmake \
+            python3.10 \
+            python3.10-venv \
+            python3-pip
+          apt-get clean
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Restore venv from cache
+        id: cache-venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+      - name: Create / Update venv and install Python deps
+        run: |
+          python3 -m venv .venv || true
           . .venv/bin/activate
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install --no-cache-dir -r requirements.txt
+
+      - name: Build pybind example
+        run: |
+          . .venv/bin/activate
           export CUDA_PATH=/usr/local/cuda
           export CUDA_ARCHITECTURE=75
           ./examples/pybind/build.bash
@@ -34,3 +55,4 @@ jobs:
             echo "❌ mymatmul extension not found in site-packages"
             exit 1
           fi
+          echo "✅ mymatmul extension found"

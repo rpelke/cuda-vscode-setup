@@ -37,7 +37,7 @@ for kernel in kernels:
         print("Test passed! ✅")
         print_tuning_stats(kernel.matmul_kernel)
 
-        c = torch.empty((M, N), device=a.device, dtype=torch.float32)
+        c = torch.zeros((M, N), device=a.device, dtype=torch.float32)
         tri_ms = time_gpu(lambda: kernel.matmul_kernel[grids[kernel]](a, b, c, M, N, K),
                           warmup=5,
                           iters=20)

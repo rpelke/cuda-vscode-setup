@@ -11,7 +11,7 @@ def check_and_launch_matmul(a, b, kernel, grid):
     K2, N = b.shape
     assert K == K2
 
-    c = torch.empty((M, N), device=a.device, dtype=torch.float32)
+    c = torch.zeros((M, N), device=a.device, dtype=torch.float32)
     kernel[grid](a, b, c, M, N, K)
     return c
 
