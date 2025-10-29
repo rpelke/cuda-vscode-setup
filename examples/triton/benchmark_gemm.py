@@ -1,6 +1,7 @@
-from src.gemm_kernel import check_and_launch_matmul, matmul_kernel
+from src.gemm_kernel_0 import matmul_kernel
 from src.print_stats import get_autotuner_obj
 from src.torch_kernel import time_gpu
+from src.generic import check_and_launch_matmul
 from tabulate import tabulate
 import torch
 import triton
@@ -30,15 +31,15 @@ def bench_square(min_sz=256, max_sz=2048, step=128, dtype=torch.float32, warmup=
         M = N = K = s
         a = rand_mat(M, K, dtype)
         b = rand_mat(K, N, dtype)
-
-        c_tri = check_and_launch_matmul(a, b)
         c_ref = torch.matmul(a, b)
-        ok = torch.allclose(c_tri, c_ref, atol=1e-4, rtol=1e-5)
 
-        c = torch.empty((M, N), device=a.device, dtype=torch.float32)
         grid = lambda META: ( \
             triton.cdiv(M, META['BLOCK_SIZE_M']) * \
             triton.cdiv(N, META['BLOCK_SIZE_N']), )
+        c_tri = check_and_launch_matmul(a, b, kernel=matmul_kernel, grid=grid)
+        ok = torch.allclose(c_tri, c_ref, atol=1e-4, rtol=1e-5)
+
+        c = torch.empty((M, N), device=a.device, dtype=torch.float32)
 
         tri_ms = time_gpu(lambda: matmul_kernel[grid](a, b, c, M, N, K), warmup=warmup, iters=iters)
         torch_ms = time_gpu(lambda: torch.matmul(a, b), warmup=warmup, iters=iters)

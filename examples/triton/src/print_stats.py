@@ -21,8 +21,8 @@ def print_tuning_stats(tuner: Autotuner):
         print("Tuning keys:", list(at.cache.keys()))
 
         header = [
-            'BLOCK_SIZE_M', 'BLOCK_SIZE_N', 'BLOCK_SIZE_K', 'SWIZZLE_M', 'num_warps', 'num_ctas',
-            'num_stages', 'maxnreg', 'pre_hook', 'ir_override', 'Ø time_ms'
+            *at.best_config.kwargs.keys(), 'num_warps', 'num_ctas', 'num_stages', 'maxnreg',
+            'pre_hook', 'ir_override', 'Ø time_ms'
         ]
         data = []
 
@@ -30,8 +30,7 @@ def print_tuning_stats(tuner: Autotuner):
 
         for cfg, times in sorted_timings:
             data.append([
-                cfg.kwargs['BLOCK_SIZE_M'], cfg.kwargs['BLOCK_SIZE_N'], cfg.kwargs['BLOCK_SIZE_K'],
-                cfg.kwargs['SWIZZLE_M'], cfg.num_warps, cfg.num_ctas, cfg.num_stages,
+                *cfg.kwargs.values(), cfg.num_warps, cfg.num_ctas, cfg.num_stages,
                 str(cfg.maxnreg),
                 str(cfg.pre_hook),
                 str(cfg.ir_override), f"{float(np.mean(times)):8.3f}"

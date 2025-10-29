@@ -20,7 +20,7 @@ for a 2D grid.
 
 Unlike CUDA C++, Triton handles the following tasks for you:
 
-* The distribution of work within a block among the threads/warps 
+* The distribution of work within a block among the threads/warps
 (which output elements each thread computes), i.e.,
 what you manually encoded with warp tiles (`WM`,`WN`) and register tiles (`TM`/`TN`) in the
 [warptiling](../../src/06_sgemm_warptiling.cu) kernel.
@@ -44,7 +44,7 @@ for (int k=0; k < K; k += BK) {
 
     // Compute matmul operation: each thread stores results into tmp registers
     compute_tile(tmp, As, Bs);
-  
+
     // Update result matrix C: C += tmp
     update_C(tmp);
     __syncthreads();
