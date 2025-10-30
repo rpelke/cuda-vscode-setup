@@ -87,15 +87,14 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     # Initial BLOCK_SIZE_M × BLOCK_SIZE_N tile that this program instance will compute
     accumulator = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
 
+    mask_m = offs_am[:, None] < M
+    mask_n = offs_bn[None, :] < N
     for k in range(0, tl.cdiv(K, BLOCK_SIZE_K)):
+        mask_k = (k * BLOCK_SIZE_K + offs_k) < K
         # Load A and B tiles from global memory
         # Use masks to avoid out-of-bounds accesses
-        mask_k = offs_k[None, :] < K - k * BLOCK_SIZE_K
-        mask_m = offs_am[:, None] < M
-        a = tl.load(a_ptrs, mask=mask_m & mask_k, other=0.0)
-        mask_k = offs_k[:, None] < K - k * BLOCK_SIZE_K
-        mask_n = offs_bn[None, :] < N
-        b = tl.load(b_ptrs, mask=mask_k & mask_n, other=0.0)
+        a = tl.load(a_ptrs, mask=mask_m & mask_k[None, :], other=0.0)
+        b = tl.load(b_ptrs, mask=mask_k[:, None] & mask_n, other=0.0)
         # accumulator += a @ b
         accumulator = tl.dot(a, b, accumulator)
         # Update pointers to the next A and B tiles
