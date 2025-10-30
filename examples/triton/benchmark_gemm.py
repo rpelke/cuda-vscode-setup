@@ -1,4 +1,3 @@
-from src.gemm_kernel_0 import matmul_kernel
 from src.print_stats import get_autotuner_obj
 from src.torch_kernel import time_gpu
 from src.generic import check_and_launch_matmul

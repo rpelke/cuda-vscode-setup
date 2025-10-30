@@ -1,5 +1,6 @@
 import src.gemm_kernel_0 as k0
 import src.gemm_kernel_1 as k1
+import src.gemm_kernel_2 as k2
 from src.generic import check_and_launch_matmul
 from src.print_stats import print_tuning_stats
 from src.torch_kernel import time_gpu
@@ -10,14 +11,18 @@ DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 M = N = K = 1280
 
-kernels = [k0, k1]
+kernels = [k0, k1, k2]
 
 grids = {
     k0:
     lambda META: (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), ),
     k1:
     lambda META:
-    (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), META["SPLIT_K"])
+    (triton.cdiv(M, META['BLOCK_SIZE_M']) * triton.cdiv(N, META['BLOCK_SIZE_N']), META["SPLIT_K"]),
+    k2:
+    lambda META:
+    (min(META["NUM_SMS"],
+         triton.cdiv(M, META["BLOCK_SIZE_M"]) * triton.cdiv(N, META["BLOCK_SIZE_N"])), )
 }
 
 torch.manual_seed(0)
