@@ -83,24 +83,24 @@ def matmul_kernel(a_ptr, b_ptr, c_ptr, M, N, K, BLOCK_SIZE_M: tl.constexpr,
     pid_m, pid_n = pid_mn_from_pid(BLOCK_SIZE_M, BLOCK_SIZE_N, M, N, SWIZZLE_M)
     pid_k = tl.program_id(1)
 
-    rm = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
-    rn = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    rm = tl.max_contiguous(tl.multiple_of(rm % M, BLOCK_SIZE_M), BLOCK_SIZE_M)
-    rn = tl.max_contiguous(tl.multiple_of(rn % N, BLOCK_SIZE_N), BLOCK_SIZE_N)
-    rk = pid_k * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
-    rk = tl.max_contiguous(tl.multiple_of(rk, BLOCK_SIZE_K), BLOCK_SIZE_K)
+    offs_am = pid_m * BLOCK_SIZE_M + tl.arange(0, BLOCK_SIZE_M)
+    offs_bm = pid_n * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
+    offs_k = pid_k * BLOCK_SIZE_K + tl.arange(0, BLOCK_SIZE_K)
+    offs_am = tl.max_contiguous(tl.multiple_of(offs_am % M, BLOCK_SIZE_M), BLOCK_SIZE_M)
+    offs_bm = tl.max_contiguous(tl.multiple_of(offs_bm % N, BLOCK_SIZE_N), BLOCK_SIZE_N)
+    offs_k = tl.max_contiguous(tl.multiple_of(offs_k, BLOCK_SIZE_K), BLOCK_SIZE_K)
 
-    A_tile_ptr = a_ptr + (rm[:, None] * K + rk[None, :])
-    B_tile_ptr = b_ptr + (rk[:, None] * N + rn[None, :])
+    A_tile_ptr = a_ptr + (offs_am[:, None] * K + offs_k[None, :])
+    B_tile_ptr = b_ptr + (offs_k[:, None] * N + offs_bm[None, :])
     acc = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     for k in tl.range(0, tl.cdiv(K, BLOCK_SIZE_K * SPLIT_K)):
         k_remaining = K - k * (BLOCK_SIZE_K * SPLIT_K)
-        a = tl.load(A_tile_ptr, mask=rk[None, :] < k_remaining, other=0.0)
-        b = tl.load(B_tile_ptr, mask=rk[:, None] < k_remaining, other=0.0)
+        a = tl.load(A_tile_ptr, mask=offs_k[None, :] < k_remaining, other=0.0)
+        b = tl.load(B_tile_ptr, mask=offs_k[:, None] < k_remaining, other=0.0)
         acc += tl.dot(a, b)
         A_tile_ptr += BLOCK_SIZE_K * SPLIT_K
         B_tile_ptr += BLOCK_SIZE_K * SPLIT_K * N
 
     acc = acc.to(C.dtype.element_ty)
-    C_tile_ptr = c_ptr + (rm[:, None] * N + rn[None, :])
+    C_tile_ptr = c_ptr + (offs_am[:, None] * N + offs_bm[None, :])
     tl.atomic_add(C_tile_ptr, acc, sem="relaxed")
