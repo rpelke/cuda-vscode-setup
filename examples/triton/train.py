@@ -1,8 +1,10 @@
-import torch
-import triton
+from torch.library import register_autograd
 import triton.language as tl
+import triton
+import torch
 
 
+# Kernel implementation of matrix-vector multiplication
 @triton.jit
 def _mvm_kernel(
     A_ptr,
@@ -28,6 +30,7 @@ def _mvm_kernel(
     tl.store(y_ptr + offs_m, acc, mask=mask_m)
 
 
+# Kernel wrapper function: Checks inputs and launches the kernel
 def triton_mvm(A: torch.Tensor,
                x: torch.Tensor,
                block_m: int = 128,
@@ -60,30 +63,36 @@ def triton_mvm(A: torch.Tensor,
     return y
 
 
-lib = torch.library.Library("cim", "DEF")
+# Create a namespace 'mylib' and register the mvm operator
+lib = torch.library.Library("mylib", "DEF")
 lib.define("mvm(Tensor A, Tensor x) -> Tensor")
 
 
-@torch.library.impl("cim::mvm", "CUDA")
+# Register kernel implementation for CUDA and 'mvm' operator
+@torch.library.impl("mylib::mvm", "CUDA")
 def _mvm_impl_cuda(A: torch.Tensor, x: torch.Tensor):
     return triton_mvm(A, x)
 
 
-@torch.library.register_fake("cim::mvm")
+# Register abstract (shape and dtype inference) for 'mvm' operator
+@torch.library.register_fake("mylib::mvm")
 def _mvm_abstract(A: torch.Tensor, x: torch.Tensor):
     M, K = A.shape
     assert x.shape == (K, )
     return A.new_empty((M, ), dtype=torch.float32)
 
 
-from torch.library import register_autograd
-
-
+# Setup function for autograd: saves A and x for backward pass
 def _mvm_setup_context(ctx, inputs, output):
     A, x = inputs
     ctx.save_for_backward(A, x)
 
 
+# Backward function for autograd: computes gradients w.r.t. A and x
+# Function: y = A @ x
+# δL(y)/δA = δL(y)/δy * δy(A)/δA = grad_y * x
+# δL(y)/δx = δL(y)/δy * δy(x)/δx = grad_y * A
+# dA.shape = A.shape, dx.shape = x.shape
 def _mvm_backward(ctx, grad_y):
     A, x = ctx.saved_tensors
     dA = grad_y.unsqueeze(1) * x.unsqueeze(0)
@@ -91,7 +100,8 @@ def _mvm_backward(ctx, grad_y):
     return dA, dx
 
 
-register_autograd("cim::mvm", _mvm_backward, setup_context=_mvm_setup_context)
+# Link autograd functions to the 'mvm' operator
+register_autograd("mylib::mvm", _mvm_backward, setup_context=_mvm_setup_context)
 
 
 class TinyMLP(torch.nn.Module):
@@ -103,20 +113,20 @@ class TinyMLP(torch.nn.Module):
 
     def forward(self, x):
         x = self.fc1(x)
-        x = torch.nn.functional.gelu(x)
+        x = torch.nn.functional.relu(x)
         x = self.fc2(x)
         return x
 
 
-# Test standalone mvm operation
+# Test standalone Triton implementation
 def check():
     M, K = 513, 777
     A = torch.randn(M, K, device="cuda", dtype=torch.float32)
     x = torch.randn(K, device="cuda", dtype=torch.float32)
     y_ref = A @ x
-    y_triton = torch.ops.cim.mvm(A, x)
+    y_triton = torch.ops.mylib.mvm(A, x)
     max_err = (y_ref - y_triton).abs().max().item()
-    print("max abs error:", max_err)
+    print("Triton MVM vs. torch mvm: max abs error:", max_err)
 
 
 check()
@@ -131,7 +141,7 @@ y_ref_model = model(x)
 class CustomLinear(torch.nn.Linear):
 
     def forward(self, x):
-        ys = [torch.ops.cim.mvm(self.weight, x[b]) for b in range(x.shape[0])]
+        ys = [torch.ops.mylib.mvm(self.weight, x[b]) for b in range(x.shape[0])]
         y = torch.stack(ys, dim=0)
         if self.bias is not None:
             y = y + self.bias
@@ -160,4 +170,4 @@ y = opt_model(x)
 # Compare outputs
 y = y.cpu()
 max_err = (y_ref_model - y).abs().max().item()
-print("max abs error TinyMLP with custom mvm:", max_err)
+print("TinyMLP with replaced linear layers vs. torch: max abs error:", max_err)
