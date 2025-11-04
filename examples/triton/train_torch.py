@@ -2,6 +2,7 @@ from torch.library import register_autograd
 import triton.language as tl
 import triton
 import torch
+import os
 
 
 # Kernel implementation of matrix-vector multiplication
@@ -164,8 +165,12 @@ def replace_linear_modules(module):
 replace_linear_modules(model)
 model = model.cuda()
 x = x.cuda()
-opt_model = torch.compile(model, backend="inductor")
-y = opt_model(x)
+
+if os.getenv("TRITON_INTERPRET") == "1":
+    y = model(x)
+else:
+    opt_model = torch.compile(model, backend="inductor")
+    y = opt_model(x)
 
 # Compare outputs
 y = y.cpu()
