@@ -1,6 +1,5 @@
 from brevitas.quant import Int8ActPerTensorFloat
 from brevitas.quant_tensor import QuantTensor
-from torch.library import register_autograd
 import triton.language as tl
 import brevitas.nn as qnn
 import triton
@@ -87,26 +86,56 @@ def _mvm_abstract(A: torch.Tensor, x: torch.Tensor):
     return A.new_empty((M, ), dtype=torch.int32)
 
 
-# Setup function for autograd: saves A and x for backward pass
-def _mvm_setup_context(ctx, inputs, output):
-    A, x = inputs
-    ctx.save_for_backward(A, x)
+class IntMVM_STE(torch.autograd.Function):
 
+    @staticmethod
+    def forward(ctx, W_f: torch.Tensor, x_f: torch.Tensor, s_w: torch.Tensor, s_x: torch.Tensor):
+        assert W_f.dim() == 2 and x_f.dim() == 1
+        M, K = W_f.shape
 
-# Backward function for autograd: computes gradients w.r.t. A and x
-# Function: y = A @ x
-# δL(y)/δA = δL(y)/δy * δy(A)/δA = grad_y * x
-# δL(y)/δx = δL(y)/δy * δy(x)/δx = grad_y * A
-# dA.shape = A.shape, dx.shape = x.shape
-def _mvm_backward(ctx, grad_y):
-    A, x = ctx.saved_tensors
-    dA = grad_y.unsqueeze(1) * x.unsqueeze(0)
-    dx = A.t().matmul(grad_y)
-    return dA, dx
+        # Zero point s_w can be per-row (vector) or scalar
+        if s_w.dim() == 0:
+            s_w_vec = s_w.view(1).expand(M)
+        else:
+            s_w_vec = s_w.view(-1)
+            assert s_w_vec.numel() == M
+        s_x_scalar = s_x.reshape(-1)[0]
 
+        # Float to integer conversion of weights and inputs
+        qW_i32 = torch.round(W_f / s_w_vec.view(-1, 1)).to(torch.int32)
+        qX_i32 = torch.round(x_f / s_x_scalar).to(torch.int32)
 
-# Link autograd functions to the 'mvm' operator
-register_autograd("mylib::mvm", _mvm_backward, setup_context=_mvm_setup_context)
+        # Launch MVM kernel with integer inputs and weights
+        y_i32 = torch.ops.mylib.mvm(qW_i32, qX_i32)
+        # Integer to float conversion of MVM result
+        y = y_i32.to(torch.float32) * (s_w_vec * s_x_scalar)
+
+        # Save for backward pass
+        ctx.save_for_backward(W_f, x_f, qW_i32.to(torch.float32), qX_i32.to(torch.float32), s_w_vec,
+                              s_x_scalar.unsqueeze(0))
+        return y
+
+    @staticmethod
+    def backward(ctx, grad_y):
+        W_f, x_f, qW_f, qX_f, s_w_vec, s_x_vec = ctx.saved_tensors
+
+        # δL(y)/δW = δL(y)/δy * δy(W)/δW = grad_y * x
+        dW = grad_y.unsqueeze(1) * x_f.unsqueeze(0)
+        # δL(y)/δx = δL(y)/δy * δy(x)/δx = grad_y * W
+        dx = W_f.transpose(0, 1).matmul(grad_y)
+
+        # TODO: Use a clip mask to only consider elements where quantization was not saturated
+        # δL(y)/δs_x = grad_y * s_w * [qw * qx - qw * x / s_x]
+        qw_qx = (qW_f * qX_f.unsqueeze(0)).sum(dim=1)
+        qw_x = (W_f * x_f.unsqueeze(0)).sum(dim=1)
+        ds_x = (grad_y * (s_w_vec * (qw_qx - qw_x / s_x_vec[0]))).sum().unsqueeze(0)
+
+        # δL(y)/δs_w = grad_y * s_x * [qw * qx - qW * W / s_w]
+        W_qx = (W_f * qX_f.unsqueeze(0)).sum(dim=1)
+        ds_w_row = grad_y * (s_x_vec[0] * (qw_qx - W_qx / s_w_vec))
+
+        # Return gradients w.r.t. inputs of forward()
+        return dW, dx, ds_w_row, ds_x
 
 
 class TinyMLP(torch.nn.Module):
@@ -116,17 +145,21 @@ class TinyMLP(torch.nn.Module):
         self.fc1 = qnn.QuantLinear(in_features,
                                    hidden,
                                    bias=True,
-                                   input_quant=Int8ActPerTensorFloat)
+                                   input_quant=Int8ActPerTensorFloat,
+                                   return_quant_tensor=True)
         self.act = torch.nn.ReLU()
         self.fc2 = qnn.QuantLinear(hidden,
                                    out_features,
                                    bias=True,
-                                   input_quant=Int8ActPerTensorFloat)
+                                   input_quant=Int8ActPerTensorFloat,
+                                   return_quant_tensor=True)
 
     def forward(self, x):
         x = self.fc1(x)
+        if isinstance(x, QuantTensor): x = x.tensor
         x = self.act(x)
         x = self.fc2(x)
+        if isinstance(x, QuantTensor): x = x.tensor
         return x
 
 
@@ -153,31 +186,30 @@ y_ref_model = model(x)
 class QuantLinearIntTriton(qnn.QuantLinear):
 
     def __init__(self, *args, **kwargs):
+        kwargs.setdefault("return_quant_tensor", True)
         super().__init__(*args, **kwargs)
 
     def forward(self, x):
-        quant_input = self.input_quant(x)
-        quant_weight = self.quant_weight(quant_input)
+        assert x.dim() == 2
 
-        int_input = (quant_input / quant_input.scale).to(torch.int32)
-        int_weight = (quant_weight / quant_weight.scale).to(torch.int32)
-        if quant_input.dim() == 2:    # [B, K]
-            y_val = torch.stack([
-                torch.ops.mylib.mvm(int_weight, int_input[b]) for b in range(quant_input.shape[0])
-            ],
-                                dim=0)
-        else:    # [K]
-            y_val = torch.ops.mylib.mvm(int_weight, int_input)
+        # Quantize inputs and weights
+        q_in = self.input_quant(x)
+        q_w = self.quant_weight(q_in)
+        assert q_in.zero_point == 0
+        assert q_w.zero_point == 0
 
-        y_val = y_val.to(torch.float32)
-        y_val = y_val * quant_input.scale * quant_weight.scale
+        # Perform MVM for each batch element using Triton kernel with STE backward
+        ys = []
+        for b in range(q_in.size(0)):
+            y_b = IntMVM_STE.apply(q_w.tensor, q_in.tensor[b], q_w.scale, q_in.scale)
+            ys.append(y_b)
+        y = torch.stack(ys, dim=0)
 
+        # Add bias and quantize output
         if self.bias is not None:
-            quant_bias = self.bias_quant(self.bias, quant_input, quant_weight)
-            y_val = y_val + quant_bias
-
-        quant_output = self.output_quant(y_val)
-        return quant_output
+            y = y + self.bias
+        q_out = self.output_quant(y)
+        return q_out
 
 
 # Replace fc1 and f2 forward with custom forward using triton_mvm
@@ -185,16 +217,14 @@ def replace_brevitas_linear_with_int_triton(module: torch.nn.Module,
                                             return_quanttensor: bool = False):
     for name, child in list(module.named_children()):
         if isinstance(child, qnn.QuantLinear):
-            new = QuantLinearIntTriton(
-                in_features=child.in_features,
-                out_features=child.out_features,
-                bias=(child.bias is not None),
-                weight_quant=getattr(child, "weight_quant", None),
-                bias_quant=getattr(child, "bias_quant", None),
-                input_quant=getattr(child, "input_quant", None),
-                output_quant=getattr(child, "output_quant", None),
-                return_quant_tensor=getattr(child, "return_quant_tensor", False),
-            )
+            new = QuantLinearIntTriton(in_features=child.in_features,
+                                       out_features=child.out_features,
+                                       bias=(child.bias is not None),
+                                       weight_quant=getattr(child, "weight_quant", None),
+                                       bias_quant=getattr(child, "bias_quant", None),
+                                       input_quant=getattr(child, "input_quant", None),
+                                       output_quant=getattr(child, "output_quant", None),
+                                       return_quant_tensor=True)
             new.load_state_dict(child.state_dict(), strict=False)
             new.to(device=next(child.parameters()).device, dtype=next(child.parameters()).dtype)
             new.train(child.training)
@@ -203,17 +233,71 @@ def replace_brevitas_linear_with_int_triton(module: torch.nn.Module,
             replace_brevitas_linear_with_int_triton(child, return_quanttensor=return_quanttensor)
 
 
+import torchvision
+import torchvision.transforms as T
+from torch.utils.data import DataLoader
+
+batch_size = 128
+in_features = 28 * 28
+tf = T.Compose([T.ToTensor(), T.Lambda(lambda t: t.view(-1))])
+train_set = torchvision.datasets.MNIST(root='./datasets', train=True, download=True, transform=tf)
+test_set = torchvision.datasets.MNIST(root='./datasets', train=False, download=True, transform=tf)
+train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, pin_memory=True)
+test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False, pin_memory=True)
+
+
+def train_one_epoch(model, loader, optimizer, loss_fn, device):
+    model.train()
+    running = 0.0
+    for imgs, labels in loader:
+        imgs = imgs.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+
+        optimizer.zero_grad(set_to_none=True)
+        logits = model(imgs)
+        loss = loss_fn(logits, labels)
+        loss.backward()
+        optimizer.step()
+        running += loss.item() * imgs.size(0)
+    return running / len(loader.dataset)
+
+
+@torch.no_grad()
+def evaluate(model, loader, device):
+    model.eval()
+    correct = 0
+    total = 0
+    avg_loss = 0.0
+    loss_fn = torch.nn.CrossEntropyLoss()
+    for imgs, labels in loader:
+        imgs = imgs.to(device, non_blocking=True)
+        labels = labels.to(device, non_blocking=True)
+        logits = model(imgs)
+        loss = loss_fn(logits, labels)
+        avg_loss += loss.item() * imgs.size(0)
+        pred = logits.argmax(dim=1)
+        correct += (pred == labels).sum().item()
+        total += imgs.size(0)
+    return avg_loss / total, correct / total
+
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = TinyMLP(in_features=in_features, hidden=256, out_features=10).to(device)
 replace_brevitas_linear_with_int_triton(model)
-model = model.cuda()
-x = x.cuda()
 
-if os.getenv("TRITON_INTERPRET") == "1":
-    y = model(x)
-else:
-    opt_model = torch.compile(model, backend="inductor")
-    y = opt_model(x)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+loss_fn = torch.nn.CrossEntropyLoss()
 
-# Compare outputs
-y = y.cpu()
-max_err = (y_ref_model - y).abs().max().item()
-print("TinyMLP with replaced linear layers vs. torch: max abs error:", max_err)
+epochs = 5
+for epoch in range(1, epochs + 1):
+    train_loss = train_one_epoch(model, train_loader, optimizer, loss_fn, device)
+    val_loss, val_acc = evaluate(model, test_loader, device)
+    print(
+        f"[Epoch {epoch:02d}] train_loss={train_loss:.4f}  val_loss={val_loss:.4f}  val_acc={val_acc*100:.2f}%"
+    )
+
+if not os.getenv("TRITON_INTERPRET") == "1":
+    model = torch.compile(model, backend="inductor")
+
+int_loss, int_acc = evaluate(model, test_loader, device)
+print(f"[INT-EVAL] val_loss={int_loss:.4f}  val_acc={int_acc*100:.2f}%")

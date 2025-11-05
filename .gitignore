@@ -4,6 +4,7 @@ artifacts
 *.nsys-rep
 *.sqlite
 *.ncu-rep
+datasets
 
 # VSCode
 compile_commands.json
