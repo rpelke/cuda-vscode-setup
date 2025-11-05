@@ -86,10 +86,11 @@ def _mvm_abstract(A: torch.Tensor, x: torch.Tensor):
     return A.new_empty((M, ), dtype=torch.int32)
 
 
-class IntMVM_STE(torch.autograd.Function):
+class IntMVM(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, W_f: torch.Tensor, x_f: torch.Tensor, s_w: torch.Tensor, s_x: torch.Tensor):
+    def forward(ctx, W_f: torch.Tensor, x_f: torch.Tensor, s_w: torch.Tensor, s_x: torch.Tensor,
+                bw_w: int, bw_x: int):
         assert W_f.dim() == 2 and x_f.dim() == 1
         M, K = W_f.shape
 
@@ -113,29 +114,35 @@ class IntMVM_STE(torch.autograd.Function):
         # Save for backward pass
         ctx.save_for_backward(W_f, x_f, qW_i32.to(torch.float32), qX_i32.to(torch.float32), s_w_vec,
                               s_x_scalar.unsqueeze(0))
+        ctx.bw_w = bw_w
+        ctx.bw_x = bw_x
         return y
 
     @staticmethod
     def backward(ctx, grad_y):
         W_f, x_f, qW_f, qX_f, s_w_vec, s_x_vec = ctx.saved_tensors
+        bw_x = ctx.bw_x
+        bw_w = ctx.bw_w
 
         # δL(y)/δW = δL(y)/δy * δy(W)/δW = grad_y * x
         dW = grad_y.unsqueeze(1) * x_f.unsqueeze(0)
         # δL(y)/δx = δL(y)/δy * δy(x)/δx = grad_y * W
         dx = W_f.transpose(0, 1).matmul(grad_y)
 
-        # TODO: Use a clip mask to only consider elements where quantization was not saturated
         # δL(y)/δs_x = grad_y * s_w * [qw * qx - qw * x / s_x]
+        # Mask used for clipping function (STE)
+        mask_x = (qX_f.abs() < (2**(bw_x - 1))).to(x_f.dtype)
         qw_qx = (qW_f * qX_f.unsqueeze(0)).sum(dim=1)
-        qw_x = (W_f * x_f.unsqueeze(0)).sum(dim=1)
+        qw_x = (W_f * (mask_x * x_f).unsqueeze(0)).sum(dim=1)
         ds_x = (grad_y * (s_w_vec * (qw_qx - qw_x / s_x_vec[0]))).sum().unsqueeze(0)
 
         # δL(y)/δs_w = grad_y * s_x * [qw * qx - qW * W / s_w]
-        W_qx = (W_f * qX_f.unsqueeze(0)).sum(dim=1)
+        mask_w = (qW_f.abs() < (2**(bw_w - 1))).to(W_f.dtype)
+        W_qx = (mask_w * W_f * qX_f.unsqueeze(0)).sum(dim=1)
         ds_w_row = grad_y * (s_x_vec[0] * (qw_qx - W_qx / s_w_vec))
 
         # Return gradients w.r.t. inputs of forward()
-        return dW, dx, ds_w_row, ds_x
+        return dW, dx, ds_w_row, ds_x, None, None
 
 
 class TinyMLP(torch.nn.Module):
@@ -201,7 +208,8 @@ class QuantLinearIntTriton(qnn.QuantLinear):
         # Perform MVM for each batch element using Triton kernel with STE backward
         ys = []
         for b in range(q_in.size(0)):
-            y_b = IntMVM_STE.apply(q_w.tensor, q_in.tensor[b], q_w.scale, q_in.scale)
+            y_b = IntMVM.apply(q_w.tensor, q_in.tensor[b], q_w.scale, q_in.scale, q_w.bit_width,
+                               q_in.bit_width)
             ys.append(y_b)
         y = torch.stack(ys, dim=0)
 
